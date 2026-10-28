@@ -1,0 +1,132 @@
+name: Build and Push Store Bot GHCR Image
+
+on:
+  push:
+    branches:
+      - main
+      - bot
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: ghcr-${{ github.repository }}-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Bump version
+        id: bump
+        shell: bash
+        run: |
+          set -e
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if [ -f version.txt ]; then
+            CURRENT=$(cat version.txt | tr -d '[:space:]')
+          else
+            CURRENT="1.0.0"
+          fi
+
+          echo "Current version: $CURRENT"
+
+          IFS='.' read -ra PARTS <<< "$CURRENT"
+          MAJOR=${PARTS[0]:-1}
+          MINOR=${PARTS[1]:-0}
+          PATCH=${PARTS[2]:-0}
+
+          PATCH=$((PATCH + 1))
+
+          if [ "$PATCH" -ge 10 ]; then
+            PATCH=0
+            MINOR=$((MINOR + 1))
+          fi
+
+          if [ "$MINOR" -ge 10 ]; then
+            MINOR=0
+            MAJOR=$((MAJOR + 1))
+          fi
+
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+
+          echo "New version: $NEW_VERSION"
+          echo "$NEW_VERSION" > version.txt
+
+          git add -f version.txt
+          git diff --staged --quiet || git commit -m "chore: bump version to $NEW_VERSION [skip ci]"
+
+          git push origin HEAD:${{ github.ref_name }}
+
+          echo "new_version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Set image variables
+        id: vars
+        shell: bash
+        run: |
+          REPO_OWNER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          REPO_NAME=$(basename "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          BRANCH_NAME="${GITHUB_REF_NAME}"
+
+          SAFE_BRANCH=$(echo "$BRANCH_NAME" | tr '[:upper:]' '[:lower:]' | sed 's#[^a-z0-9._-]#-#g')
+
+          IMAGE_NAME="ghcr.io/${REPO_OWNER}/${REPO_NAME}"
+
+          echo "image_name=$IMAGE_NAME" >> "$GITHUB_OUTPUT"
+          echo "channel_tag=$SAFE_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "version=${{ steps.bump.outputs.new_version }}" >> "$GITHUB_OUTPUT"
+
+          echo "Image: $IMAGE_NAME"
+          echo "Branch tag: $SAFE_BRANCH"
+          echo "Version: ${{ steps.bump.outputs.new_version }}"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ steps.vars.outputs.image_name }}
+          tags: |
+            type=raw,value=latest,enable=${{ github.ref_name == 'main' }}
+            type=raw,value=${{ steps.vars.outputs.channel_tag }}
+            type=raw,value=${{ steps.vars.outputs.version }}
+            type=sha
+          labels: |
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.vars.outputs.version }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          platforms: linux/amd64
+          provenance: false
+          sbom: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=${{ steps.vars.outputs.channel_tag }}
+          cache-to: type=gha,mode=max,scope=${{ steps.vars.outputs.channel_tag }}

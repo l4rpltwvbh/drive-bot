@@ -1,0 +1,1868 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Auto Login</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{
+  --bg:#060910;
+  --surface:#0d1117;
+  --surface2:#13181f;
+  --surface3:#1a2030;
+  --border:rgba(99,102,241,.18);
+  --border2:rgba(99,102,241,.1);
+  --purple:#6366f1;
+  --purple2:#818cf8;
+  --purple3:#4f46e5;
+  --green:#22d3a5;
+  --green2:#10b981;
+  --red:#f87171;
+  --yellow:#fbbf24;
+  --orange:#fb923c;
+  --blue:#60a5fa;
+  --text:#e2e8f0;
+  --text2:#8892a4;
+  --text3:#3d4a5c;
+  --glow-purple:rgba(99,102,241,.25);
+  --glow-green:rgba(34,211,165,.2);
+}
+
+body{
+  font-family:-apple-system,'Inter','Segoe UI',sans-serif;
+  background:var(--bg);
+  color:var(--text);
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  padding:16px 12px 60px;
+  background-image:
+    radial-gradient(ellipse 60% 40% at 15% 5%,rgba(99,102,241,.1) 0,transparent 70%),
+    radial-gradient(ellipse 50% 40% at 85% 95%,rgba(34,211,165,.07) 0,transparent 70%),
+    radial-gradient(ellipse 30% 30% at 50% 50%,rgba(99,102,241,.03) 0,transparent 80%);
+}
+
+/* ─── CARD ─────────────────────────────────────────────────────────────── */
+.card{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:22px;
+  padding:24px 22px;
+  max-width:460px;
+  width:100%;
+  margin-bottom:12px;
+  position:relative;
+  overflow:hidden;
+  box-shadow:0 8px 40px rgba(0,0,0,.4),0 0 0 1px rgba(255,255,255,.03) inset;
+}
+.card::before{
+  content:'';
+  position:absolute;
+  top:0;left:0;right:0;
+  height:2px;
+  background:linear-gradient(90deg,#4f46e5,#6366f1,#22d3a5);
+}
+.card::after{
+  content:'';
+  position:absolute;
+  top:-80px;right:-60px;
+  width:200px;height:200px;
+  background:radial-gradient(circle,rgba(99,102,241,.06) 0,transparent 70%);
+  pointer-events:none;
+}
+
+/* ─── HEADER ────────────────────────────────────────────────────────────── */
+.logo-row{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+.logo-icon{
+  width:46px;height:46px;
+  background:linear-gradient(135deg,#4338ca,#6366f1);
+  border-radius:14px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.4rem;flex-shrink:0;
+  box-shadow:0 0 20px rgba(99,102,241,.45),0 0 0 1px rgba(99,102,241,.3) inset;
+}
+.logo-text h1{font-size:1.18rem;color:#fff;font-weight:800;letter-spacing:-.2px;}
+.logo-text p{font-size:.75rem;color:var(--text2);margin-top:1px;}
+.subtitle{
+  font-size:.82rem;color:var(--text2);margin-bottom:22px;
+  line-height:1.65;padding:10px 14px;
+  background:rgba(99,102,241,.06);border-radius:10px;
+  border-left:3px solid var(--purple);
+}
+
+/* ─── FORM ──────────────────────────────────────────────────────────────── */
+.field{margin-bottom:14px;}
+label{display:block;font-size:.73rem;color:var(--text2);font-weight:700;margin-bottom:7px;text-transform:uppercase;letter-spacing:.6px;}
+.input-wrap{position:relative;}
+input[type="email"],input[type="password"],input[type="text"],input[type="tel"]{
+  width:100%;background:var(--surface2);
+  border:1.5px solid rgba(99,102,241,.2);border-radius:11px;
+  color:var(--text);font-size:.95rem;
+  padding:12px 42px 12px 14px;outline:none;
+  transition:border-color .2s,box-shadow .2s,background .2s;
+}
+input:focus{border-color:var(--purple);box-shadow:0 0 0 4px rgba(99,102,241,.12);background:var(--surface3);}
+.device-select{
+  width:100%;background:var(--surface2);
+  border:1.5px solid rgba(99,102,241,.2);border-radius:11px;
+  color:var(--text);font-size:.92rem;
+  padding:12px 14px;outline:none;appearance:none;
+  -webkit-appearance:none;cursor:pointer;
+  background-image:url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238b8fa3' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:16px;
+  transition:border-color .2s,box-shadow .2s,background-color .2s;
+}
+.device-select:focus{border-color:var(--purple);box-shadow:0 0 0 4px rgba(99,102,241,.12);background-color:var(--surface3);}
+.device-select option{background:var(--surface2);color:var(--text);}
+input::placeholder{color:var(--text3);}
+.eye-btn{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text3);cursor:pointer;font-size:.95rem;padding:4px;transition:color .2s;}
+.eye-btn:hover{color:var(--text2);}
+
+.totp-toggle{
+  width:100%;background:none;border:1.5px dashed rgba(99,102,241,.25);
+  color:var(--text2);border-radius:9px;padding:9px 14px;font-size:.82rem;
+  cursor:pointer;margin-bottom:14px;transition:all .2s;
+  display:flex;align-items:center;gap:8px;justify-content:center;font-weight:600;
+}
+.totp-toggle:hover{border-color:var(--purple);color:var(--purple2);background:rgba(99,102,241,.05);}
+.totp-section{display:none;}
+.totp-section.show{display:block;}
+.totp-hint{font-size:.74rem;color:var(--text3);margin-top:5px;line-height:1.5;}
+.twofa-suggest{
+  display:flex;gap:10px;align-items:flex-start;
+  background:rgba(34,211,165,.06);border:1px solid rgba(34,211,165,.22);
+  border-radius:12px;padding:12px 14px;margin-bottom:12px;
+}
+.twofa-suggest-icon{font-size:1.3rem;line-height:1;flex-shrink:0;}
+.twofa-suggest-text{font-size:.78rem;color:var(--text2);line-height:1.6;}
+.twofa-suggest-text b{color:var(--green);display:block;margin-bottom:3px;}
+
+.btn-login{
+  width:100%;background:linear-gradient(135deg,#4338ca,#6366f1);
+  color:#fff;border:none;border-radius:12px;padding:14px;
+  font-size:1rem;font-weight:800;cursor:pointer;margin-top:6px;
+  transition:opacity .2s,transform .15s,box-shadow .2s;
+  box-shadow:0 4px 24px rgba(99,102,241,.4),0 0 0 1px rgba(255,255,255,.08) inset;
+  letter-spacing:.2px;
+}
+.btn-login:hover:not(:disabled){opacity:.93;transform:translateY(-2px);box-shadow:0 8px 28px rgba(99,102,241,.5);}
+.btn-login:active:not(:disabled){transform:translateY(0);}
+.btn-login:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+
+.security-note{
+  display:flex;align-items:flex-start;gap:10px;
+  background:rgba(34,211,165,.04);border:1px solid rgba(34,211,165,.12);
+  border-radius:10px;padding:10px 14px;font-size:.74rem;color:var(--text3);
+  margin-top:14px;line-height:1.65;
+}
+
+/* ─── ELAPSED TIMER ─────────────────────────────────────────────────────── */
+.elapsed-row{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;padding:8px 12px;
+  background:var(--surface2);border-radius:10px;border:1px solid var(--border2);
+}
+.elapsed-label{font-size:.73rem;color:var(--text2);font-weight:600;}
+.elapsed-time{font-size:.85rem;color:var(--purple2);font-weight:800;font-variant-numeric:tabular-nums;font-family:'SF Mono','Fira Mono',monospace;}
+
+/* ─── PROGRESS ──────────────────────────────────────────────────────────── */
+#progress-section{display:none;}
+#progress-section.show{display:block;}
+.prog-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;}
+.prog-label{font-size:.8rem;color:var(--text2);font-weight:700;text-transform:uppercase;letter-spacing:.4px;}
+.prog-pct{font-size:1.1rem;font-weight:900;color:var(--purple2);transition:all .3s;font-variant-numeric:tabular-nums;}
+.prog-track{width:100%;height:7px;background:var(--surface2);border-radius:99px;overflow:hidden;margin-bottom:20px;box-shadow:0 0 0 1px rgba(99,102,241,.08) inset;}
+.prog-fill{
+  height:100%;border-radius:99px;width:0%;
+  background:linear-gradient(90deg,#4338ca,#6366f1,#22d3a5);
+  transition:width .7s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;
+}
+.prog-fill::after{
+  content:'';position:absolute;top:0;left:-100%;width:100%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  animation:shimmer 1.8s infinite;
+}
+@keyframes shimmer{0%{left:-100%}100%{left:100%}}
+
+/* ─── STEPS ─────────────────────────────────────────────────────────────── */
+.steps-list{display:flex;flex-direction:column;gap:0;}
+.step-item{
+  display:flex;align-items:flex-start;gap:14px;padding:10px 0;
+  position:relative;opacity:.28;transition:opacity .45s ease;
+}
+.step-item.active{opacity:1;}
+.step-item.done{opacity:.6;}
+.step-item:not(:last-child)::after{
+  content:'';position:absolute;left:15px;top:38px;
+  width:2px;height:calc(100% - 10px);background:var(--surface3);transition:background .4s;
+}
+.step-item.done::after{background:rgba(34,211,165,.25);}
+.step-item.active::after{background:rgba(99,102,241,.25);}
+.step-dot{
+  width:32px;height:32px;min-width:32px;border-radius:50%;
+  background:var(--surface2);border:2px solid rgba(99,102,241,.15);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.85rem;transition:all .45s ease;position:relative;z-index:1;
+}
+.step-item.active .step-dot{
+  background:rgba(99,102,241,.18);border-color:var(--purple);
+  box-shadow:0 0 16px rgba(99,102,241,.4);animation:pulse-dot 2.2s infinite;
+}
+.step-item.done .step-dot{background:rgba(34,211,165,.15);border-color:var(--green);}
+@keyframes pulse-dot{0%,100%{box-shadow:0 0 12px rgba(99,102,241,.4)}50%{box-shadow:0 0 26px rgba(99,102,241,.7)}}
+.step-body{flex:1;padding-top:5px;}
+.step-title{font-size:.88rem;font-weight:700;color:var(--text);margin-bottom:2px;}
+.step-desc{font-size:.77rem;color:var(--text2);line-height:1.5;}
+.step-item.active .step-title{color:#fff;}
+.step-item.done .step-title{color:var(--green);}
+
+/* ─── LIVE STATUS ───────────────────────────────────────────────────────── */
+.live-status{
+  background:var(--surface2);border:1px solid var(--border2);
+  border-radius:10px;padding:11px 14px;margin-top:16px;
+  font-size:.82rem;color:var(--text2);line-height:1.6;
+  display:flex;align-items:center;gap:10px;
+}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--purple);flex-shrink:0;animation:blink 1.2s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+
+/* ─── CONSOLE LOG ───────────────────────────────────────────────────────── */
+.console-wrap{
+  margin-top:14px;border-radius:12px;overflow:hidden;
+  border:1px solid rgba(99,102,241,.15);background:#080d1a;
+}
+.console-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:rgba(99,102,241,.07);
+  border-bottom:1px solid rgba(99,102,241,.12);
+}
+.console-title{font-size:.73rem;font-weight:800;color:var(--purple2);letter-spacing:.6px;display:flex;align-items:center;gap:8px;text-transform:uppercase;}
+.console-dot{width:7px;height:7px;border-radius:50%;background:var(--green);animation:blink 1.2s infinite;}
+.console-actions{display:flex;gap:6px;}
+.console-btn{background:none;border:1px solid rgba(99,102,241,.2);color:var(--text3);font-size:.7rem;cursor:pointer;padding:2px 8px;border-radius:5px;transition:all .2s;font-weight:600;}
+.console-btn:hover{color:var(--text2);background:rgba(99,102,241,.08);}
+.console-body{
+  padding:10px 12px;max-height:200px;overflow-y:auto;
+  font-family:'SF Mono','Fira Mono','Consolas',monospace;font-size:.73rem;
+  line-height:1.75;
+}
+.console-body::-webkit-scrollbar{width:4px;}
+.console-body::-webkit-scrollbar-track{background:transparent;}
+.console-body::-webkit-scrollbar-thumb{background:rgba(99,102,241,.25);border-radius:99px;}
+.cl{display:flex;gap:8px;align-items:flex-start;}
+.cl-ts{color:#2d3a52;min-width:52px;flex-shrink:0;font-size:.68rem;padding-top:2px;}
+.cl-msg{flex:1;word-break:break-word;}
+.cl.info .cl-msg{color:#7a8fa8;}
+.cl.ok   .cl-msg{color:#34d399;}
+.cl.warn .cl-msg{color:#fbbf24;}
+.cl.error .cl-msg{color:#f87171;}
+.console-empty{color:#2d3a52;font-size:.74rem;padding:10px 0;font-family:'SF Mono',monospace;text-align:center;}
+
+/* ─── CHALLENGE BOX ─────────────────────────────────────────────────────── */
+.challenge-box{
+  display:none;border-radius:16px;padding:20px;margin-top:18px;
+  animation:slide-in .3s cubic-bezier(.34,1.2,.64,1);
+}
+.challenge-box.show{display:block;}
+@keyframes slide-in{0%{opacity:0;transform:translateY(12px) scale(.98)}100%{opacity:1;transform:none}}
+.challenge-box.yellow{background:rgba(251,191,36,.05);border:1.5px solid rgba(251,191,36,.28);}
+.challenge-box.purple{background:rgba(99,102,241,.05);border:1.5px solid rgba(99,102,241,.28);}
+.challenge-box.orange{background:rgba(251,146,60,.05);border:1.5px solid rgba(251,146,60,.28);}
+.challenge-box.blue{background:rgba(96,165,250,.05);border:1.5px solid rgba(96,165,250,.28);}
+.ch-title{font-size:.9rem;font-weight:800;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.ch-title.yellow{color:var(--yellow);}
+.ch-title.purple{color:var(--purple2);}
+.ch-title.orange{color:var(--orange);}
+.ch-title.blue{color:var(--blue);}
+.ch-sub{font-size:.8rem;color:var(--text2);margin-bottom:16px;line-height:1.65;}
+
+/* ─── OTP SPLIT INPUT ───────────────────────────────────────────────────── */
+.otp-boxes{
+  display:flex;gap:8px;justify-content:center;margin-bottom:16px;
+}
+.otp-box{
+  width:44px;height:54px;
+  background:var(--surface2);
+  border:2px solid rgba(251,191,36,.3);
+  border-radius:10px;
+  color:#fff;font-size:1.5rem;font-weight:800;
+  text-align:center;outline:none;
+  transition:border-color .2s,box-shadow .2s,background .2s;
+  caret-color:transparent;
+  font-family:'SF Mono',monospace;
+}
+.otp-box:focus{
+  border-color:var(--yellow);
+  box-shadow:0 0 0 4px rgba(251,191,36,.15);
+  background:var(--surface3);
+}
+.otp-box.filled{border-color:rgba(251,191,36,.6);}
+/* Fallback full input (hidden, used on mobile if needed) */
+.otp-inp-full{
+  width:100%;background:var(--surface2);
+  border:2px solid rgba(251,191,36,.35);border-radius:11px;
+  color:#fff;font-size:1.4rem;font-weight:800;padding:12px 14px;
+  outline:none;text-align:center;letter-spacing:12px;margin-bottom:14px;
+  transition:border-color .2s,box-shadow .2s;display:none;
+}
+.otp-inp-full:focus{border-color:var(--yellow);box-shadow:0 0 0 4px rgba(251,191,36,.15);}
+
+/* Clipboard hint */
+.otp-hint-bar{
+  display:none;align-items:center;gap:8px;
+  background:rgba(251,191,36,.08);border:1px solid rgba(251,191,36,.2);
+  border-radius:8px;padding:7px 12px;margin-bottom:12px;
+  font-size:.78rem;color:var(--yellow);cursor:pointer;
+  transition:background .2s;
+}
+.otp-hint-bar:hover{background:rgba(251,191,36,.14);}
+.otp-hint-bar.show{display:flex;}
+
+.phone-inp{
+  width:100%;background:var(--surface2);
+  border:2px solid rgba(99,102,241,.35);border-radius:11px;
+  color:#fff;font-size:1rem;padding:12px 14px;outline:none;margin-bottom:14px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.phone-inp:focus{border-color:var(--purple);box-shadow:0 0 0 4px rgba(99,102,241,.12);}
+.text-inp{
+  width:100%;background:var(--surface2);
+  border:2px solid rgba(251,146,60,.35);border-radius:11px;
+  color:#fff;font-size:.9rem;padding:12px 14px;outline:none;margin-bottom:14px;
+  resize:vertical;min-height:72px;font-family:inherit;
+  transition:border-color .2s,box-shadow .2s;
+}
+.text-inp:focus{border-color:var(--orange);box-shadow:0 0 0 4px rgba(251,146,60,.12);}
+
+/* ─── BUTTONS ───────────────────────────────────────────────────────────── */
+.btn-ch{
+  width:100%;border:none;border-radius:11px;padding:13px;
+  font-size:.95rem;font-weight:800;cursor:pointer;
+  transition:opacity .2s,transform .15s,box-shadow .2s;letter-spacing:.1px;
+}
+.btn-ch:hover:not(:disabled){opacity:.88;transform:translateY(-2px);}
+.btn-ch:active:not(:disabled){transform:translateY(0);}
+.btn-ch:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+.btn-yellow{background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(251,191,36,.25));color:var(--yellow);border:1.5px solid rgba(251,191,36,.4);box-shadow:0 4px 16px rgba(251,191,36,.12);}
+.btn-purple{background:linear-gradient(135deg,rgba(99,102,241,.15),rgba(99,102,241,.25));color:var(--purple2);border:1.5px solid rgba(99,102,241,.4);box-shadow:0 4px 16px rgba(99,102,241,.12);}
+.btn-orange{background:linear-gradient(135deg,rgba(251,146,60,.15),rgba(251,146,60,.25));color:var(--orange);border:1.5px solid rgba(251,146,60,.4);box-shadow:0 4px 16px rgba(251,146,60,.12);}
+
+/* ─── NUMBER MATCH ──────────────────────────────────────────────────────── */
+.num-wrap{display:flex;gap:16px;justify-content:center;margin-top:14px;flex-wrap:wrap;}
+.num-btn{
+  width:76px;height:76px;border-radius:50%;
+  background:var(--surface2);border:2.5px solid rgba(99,102,241,.28);
+  color:#fff;font-size:1.6rem;font-weight:800;cursor:pointer;
+  transition:all .22s;display:flex;align-items:center;justify-content:center;
+}
+.num-btn:hover:not(:disabled){
+  background:rgba(99,102,241,.2);border-color:var(--purple);
+  transform:scale(1.1);box-shadow:0 0 24px rgba(99,102,241,.45);
+}
+.num-btn.selected{
+  background:rgba(99,102,241,.3);border-color:var(--purple2);
+  box-shadow:0 0 30px rgba(99,102,241,.55);animation:num-pop .35s ease;
+}
+.num-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+@keyframes num-pop{0%{transform:scale(1)}50%{transform:scale(1.18)}100%{transform:scale(1)}}
+
+/* ─── CHOICE ────────────────────────────────────────────────────────────── */
+.choice-wrap{display:flex;flex-direction:column;gap:10px;margin-top:14px;}
+.choice-btn{
+  width:100%;text-align:left;padding:14px 16px;border-radius:12px;
+  background:var(--surface2);border:2px solid rgba(99,102,241,.2);
+  color:#fff;font-size:.93rem;font-weight:600;cursor:pointer;
+  transition:all .22s;
+}
+.choice-btn:hover:not(:disabled){
+  background:rgba(99,102,241,.18);border-color:var(--purple);
+  transform:translateX(5px);box-shadow:0 0 22px rgba(99,102,241,.28);
+}
+.choice-btn.selected{
+  background:rgba(99,102,241,.28);border-color:var(--purple2);
+  box-shadow:0 0 26px rgba(99,102,241,.45);
+}
+.choice-btn:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+
+/* ─── DEVICE APPROVAL ───────────────────────────────────────────────────── */
+.device-anim{display:flex;justify-content:center;margin:18px 0;}
+.phone-ring{
+  width:68px;height:68px;border-radius:50%;
+  background:rgba(96,165,250,.1);border:2.5px solid rgba(96,165,250,.28);
+  display:flex;align-items:center;justify-content:center;
+  font-size:2.1rem;animation:ring-pulse 1.6s infinite;
+}
+@keyframes ring-pulse{0%,100%{box-shadow:0 0 0 0 rgba(96,165,250,.45)}50%{box-shadow:0 0 0 18px rgba(96,165,250,0)}}
+.device-steps{font-size:.8rem;color:var(--text2);line-height:2.1;}
+.device-steps b{color:#fff;}
+
+/* ─── SCREENSHOT (unknown challenge) ────────────────────────────────────── */
+.screenshot-wrap{margin-top:12px;border-radius:10px;overflow:hidden;border:1px solid rgba(251,146,60,.25);background:var(--surface2);}
+.screenshot-img{width:100%;display:block;max-height:260px;object-fit:contain;}
+.screenshot-placeholder{padding:22px;text-align:center;color:var(--text3);font-size:.84rem;}
+.screenshot-loading{display:flex;align-items:center;gap:8px;padding:16px;color:var(--text2);font-size:.82rem;}
+.manual-hint{font-size:.77rem;color:var(--text3);background:rgba(251,146,60,.04);border:1px dashed rgba(251,146,60,.18);border-radius:8px;padding:8px 12px;margin:10px 0;line-height:1.65;}
+
+/* ─── LIVE VIEW CARD ────────────────────────────────────────────────────── */
+#live-view-card{
+  display:none;background:var(--surface);
+  border:1px solid rgba(99,102,241,.2);
+  border-radius:22px;padding:0;max-width:640px;
+  width:100%;margin-bottom:12px;overflow:hidden;
+  position:relative;
+  box-shadow:0 8px 40px rgba(0,0,0,.35);
+}
+#live-view-card.show{display:block;}
+#live-view-card::before{
+  content:'';position:absolute;top:0;left:0;right:0;height:2px;
+  background:linear-gradient(90deg,#f87171,#fb923c,#fbbf24);
+}
+.lv-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:12px 16px 10px;border-bottom:1px solid rgba(99,102,241,.1);
+  background:rgba(0,0,0,.18);
+}
+.lv-title-wrap{display:flex;align-items:center;gap:10px;}
+.lv-live-badge{
+  background:rgba(248,113,113,.14);border:1px solid rgba(248,113,113,.38);
+  color:#f87171;font-size:.63rem;font-weight:900;letter-spacing:1px;
+  padding:3px 8px;border-radius:5px;text-transform:uppercase;
+  display:flex;align-items:center;gap:5px;
+}
+.lv-live-dot{width:6px;height:6px;border-radius:50%;background:#f87171;animation:blink 1s infinite;}
+.lv-title{font-size:.88rem;font-weight:700;color:var(--text);}
+.lv-controls{display:flex;align-items:center;gap:7px;}
+.lv-ts{font-size:.67rem;color:var(--text3);font-family:'SF Mono',monospace;}
+.lv-btn{
+  border-radius:7px;padding:4px 10px;font-size:.7rem;
+  cursor:pointer;font-weight:700;transition:all .2s;border:1px solid;
+}
+.lv-btn.refresh{background:rgba(34,211,165,.07);border-color:rgba(34,211,165,.22);color:var(--green);}
+.lv-btn.refresh:hover{background:rgba(34,211,165,.15);}
+.lv-btn.zoom{background:rgba(99,102,241,.1);border-color:rgba(99,102,241,.25);color:var(--purple2);}
+.lv-btn.zoom:hover{background:rgba(99,102,241,.2);}
+.lv-img-wrap{
+  position:relative;background:#030609;min-height:160px;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+}
+.lv-img-wrap:hover .lv-zoom-hint{opacity:1;}
+.lv-zoom-hint{
+  position:absolute;bottom:10px;right:10px;
+  background:rgba(0,0,0,.75);color:#fff;font-size:.7rem;padding:4px 10px;border-radius:6px;
+  pointer-events:none;opacity:0;transition:opacity .2s;backdrop-filter:blur(4px);
+}
+.lv-img-wrap:hover .lv-zoom-hint{opacity:1;}
+/* interactive badge */
+.lv-interact-badge{
+  position:absolute;top:10px;left:10px;
+  background:rgba(99,102,241,.82);color:#fff;font-size:.67rem;font-weight:700;
+  padding:4px 10px;border-radius:20px;
+  pointer-events:none;opacity:0;transition:opacity .35s;
+  backdrop-filter:blur(6px);letter-spacing:.3px;
+}
+.lv-img-wrap.interactive .lv-interact-badge{opacity:1;}
+.lv-img-wrap.interactive .lv-zoom-hint{display:none;}
+/* click ripple */
+.lv-click-ripple{
+  position:absolute;border-radius:50%;
+  width:44px;height:44px;margin-left:-22px;margin-top:-22px;
+  pointer-events:none;display:none;
+  background:radial-gradient(circle,rgba(99,102,241,.7) 0%,rgba(99,102,241,0) 70%);
+  animation:ripple-expand .6s ease-out forwards;
+}
+@keyframes ripple-expand{
+  0%{transform:scale(0);opacity:1;}
+  100%{transform:scale(4);opacity:0;}
+}
+#lv-img{width:100%;display:block;object-fit:contain;max-height:560px;transition:opacity .25s;}
+@media (min-width:520px){
+  .lv-img-wrap{min-height:280px;}
+}
+
+/* ─── TYPE PANEL ───────────────────────────────────────────────────────── */
+#type-panel{
+  position:fixed;bottom:0;left:50%;transform:translateX(-50%) translateY(110%);
+  width:100%;max-width:460px;z-index:900;
+  background:var(--surface);border:1px solid var(--border);
+  border-bottom:none;border-radius:18px 18px 0 0;
+  box-shadow:0 -8px 40px rgba(0,0,0,.55);
+  transition:transform .3s cubic-bezier(.4,0,.2,1);
+  padding:14px 16px 16px;
+}
+#type-panel.show{transform:translateX(-50%) translateY(0);}
+.tp-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:10px;
+}
+.tp-title{font-size:.82rem;font-weight:700;color:var(--text);display:flex;align-items:center;gap:6px;}
+.tp-close{
+  background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.1);
+  color:var(--text2);border-radius:50%;width:26px;height:26px;
+  display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:.8rem;font-weight:700;flex-shrink:0;
+  transition:background .2s;
+}
+.tp-close:hover{background:rgba(255,255,255,.12);color:#fff;}
+.tp-input-row{display:flex;gap:8px;margin-bottom:10px;}
+#type-input{
+  flex:1;background:var(--surface2);border:1px solid var(--border);
+  border-radius:10px;padding:10px 14px;font-size:.92rem;color:var(--text);
+  outline:none;transition:border-color .2s;
+}
+#type-input:focus{border-color:var(--purple);}
+.tp-send-btn{
+  background:linear-gradient(135deg,var(--purple),var(--purple3));
+  color:#fff;border:none;border-radius:10px;
+  padding:10px 16px;font-size:.88rem;font-weight:700;cursor:pointer;
+  transition:opacity .2s;white-space:nowrap;flex-shrink:0;
+}
+.tp-send-btn:hover{opacity:.85;}
+.tp-keys{display:flex;gap:6px;flex-wrap:wrap;}
+.tp-key{
+  background:var(--surface2);border:1px solid var(--border);
+  color:var(--text2);border-radius:8px;padding:6px 12px;
+  font-size:.78rem;font-weight:600;cursor:pointer;
+  transition:all .15s;flex-shrink:0;
+}
+.tp-key:hover{background:var(--surface3);color:var(--text);border-color:var(--purple);}
+.tp-key.enter{background:rgba(34,211,165,.1);color:var(--green);border-color:rgba(34,211,165,.25);}
+.tp-key.enter:hover{background:rgba(34,211,165,.2);}
+.tp-hint{font-size:.67rem;color:var(--text3);margin-top:8px;text-align:center;}
+#lv-placeholder{
+  color:var(--text3);font-size:.82rem;text-align:center;padding:44px 20px;
+  display:flex;flex-direction:column;align-items:center;gap:10px;
+}
+.lv-placeholder-icon{font-size:2.4rem;margin-bottom:2px;}
+.lv-footer{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;border-top:1px solid rgba(99,102,241,.08);
+  background:rgba(0,0,0,.12);
+}
+.lv-url{font-size:.67rem;color:var(--text3);font-family:'SF Mono',monospace;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;margin-right:8px;}
+.lv-fps-badge{display:flex;align-items:center;gap:5px;font-size:.67rem;color:var(--text3);flex-shrink:0;}
+.lv-fps-dot{width:5px;height:5px;border-radius:50%;background:var(--green);animation:blink 2s infinite;}
+
+/* ─── LIGHTBOX ──────────────────────────────────────────────────────────── */
+#lightbox{
+  display:none;position:fixed;inset:0;z-index:999;
+  background:rgba(0,0,0,.94);backdrop-filter:blur(10px);
+  align-items:center;justify-content:center;padding:16px;cursor:zoom-out;
+}
+#lightbox.show{display:flex;}
+#lightbox img{max-width:100%;max-height:90vh;object-fit:contain;border-radius:8px;box-shadow:0 0 80px rgba(0,0,0,.9);animation:lb-in .22s ease;}
+@keyframes lb-in{0%{opacity:0;transform:scale(.93)}100%{opacity:1;transform:scale(1)}}
+#lightbox-close{
+  position:fixed;top:16px;right:16px;
+  background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
+  color:#fff;border-radius:50%;width:38px;height:38px;
+  display:flex;align-items:center;justify-content:center;
+  font-size:1.1rem;cursor:pointer;z-index:1000;font-weight:700;
+  backdrop-filter:blur(4px);transition:background .2s;
+}
+#lightbox-close:hover{background:rgba(255,255,255,.2);}
+
+/* ─── ERROR ─────────────────────────────────────────────────────────────── */
+.error-box{
+  display:none;background:rgba(248,113,113,.06);
+  border:1.5px solid rgba(248,113,113,.28);border-radius:14px;
+  padding:16px;margin-top:16px;font-size:.84rem;color:#fca5a5;line-height:1.65;
+  animation:slide-in .3s ease;
+}
+.error-box.show{display:block;}
+.err-title{font-weight:800;color:var(--red);margin-bottom:6px;font-size:.92rem;display:flex;align-items:center;gap:8px;}
+.btn-retry{
+  width:100%;background:rgba(248,113,113,.1);color:var(--red);
+  border:1.5px solid rgba(248,113,113,.28);border-radius:10px;
+  padding:11px;font-size:.88rem;font-weight:800;cursor:pointer;margin-top:12px;
+  transition:all .2s;
+}
+.btn-retry:hover{background:rgba(248,113,113,.18);}
+
+/* ─── FAILURE SCREENSHOT ────────────────────────────────────────────────── */
+#fail-ss-panel{display:none;margin-top:14px;border-radius:12px;overflow:hidden;border:1px solid rgba(248,113,113,.3);background:#090610;}
+#fail-ss-panel.show{display:block;}
+.fail-ss-header{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 14px;background:rgba(248,113,113,.07);
+  border-bottom:1px solid rgba(248,113,113,.18);
+}
+.fail-ss-title{font-size:.73rem;font-weight:800;color:#f87171;letter-spacing:.4px;display:flex;align-items:center;gap:7px;text-transform:uppercase;}
+.fail-ss-badge{width:7px;height:7px;border-radius:50%;background:#f87171;flex-shrink:0;}
+.fail-ss-actions{display:flex;gap:6px;}
+.fail-ss-btn{background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.22);color:#f87171;border-radius:5px;padding:3px 9px;font-size:.7rem;cursor:pointer;font-weight:700;transition:all .2s;}
+.fail-ss-btn:hover{background:rgba(248,113,113,.2);}
+.fail-ss-body{min-height:80px;display:flex;align-items:center;justify-content:center;padding:4px;background:#040509;cursor:zoom-in;}
+#fail-ss-img{width:100%;display:block;border-radius:4px;max-height:270px;object-fit:contain;}
+.fail-ss-empty{color:#4a5568;font-size:.79rem;text-align:center;padding:22px;}
+.fail-ss-footer{padding:6px 14px;background:rgba(0,0,0,.15);border-top:1px solid rgba(248,113,113,.1);font-size:.66rem;color:#5c2e2e;font-family:'SF Mono',monospace;}
+
+/* ─── SUCCESS ───────────────────────────────────────────────────────────── */
+#success-section{display:none;text-align:center;}
+#success-section.show{display:block;animation:slide-in .4s ease;}
+.success-icon{font-size:4.5rem;margin-bottom:16px;animation:s-pop .55s cubic-bezier(.34,1.56,.64,1);}
+@keyframes s-pop{0%{transform:scale(0);opacity:0}100%{transform:scale(1);opacity:1}}
+.success-title{font-size:1.45rem;font-weight:900;color:var(--green);margin-bottom:8px;letter-spacing:-.2px;}
+.success-sub{font-size:.87rem;color:var(--text2);line-height:1.75;margin-bottom:16px;}
+.success-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px;text-align:left;}
+.success-info-card{background:rgba(34,211,165,.07);border:1px solid rgba(34,211,165,.2);border-radius:12px;padding:12px 14px;}
+.sic-label{display:block;font-size:.72rem;color:var(--text2);font-weight:600;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px;}
+.sic-value{display:block;font-size:.88rem;color:var(--green);font-weight:800;word-break:break-all;}
+.success-bot-note{font-size:.78rem;color:rgba(34,211,165,.75);background:rgba(34,211,165,.06);
+  border:1px solid rgba(34,211,165,.15);border-radius:10px;padding:10px 14px;
+  margin-bottom:16px;text-align:center;line-height:1.5;}
+.redirect-box{
+  background:rgba(34,211,165,.07);border:1.5px solid rgba(34,211,165,.25);
+  border-radius:14px;padding:18px;margin-bottom:18px;
+}
+.redirect-label{font-size:.84rem;color:var(--green);font-weight:700;}
+.redirect-num{font-size:2rem;font-weight:900;color:var(--green);display:block;margin:6px 0;font-variant-numeric:tabular-nums;}
+.btn-go-bot{
+  display:inline-flex;align-items:center;gap:10px;
+  background:linear-gradient(135deg,#059669,#22d3a5);
+  color:#fff;border:none;border-radius:12px;padding:14px 28px;
+  font-size:.95rem;font-weight:800;cursor:pointer;text-decoration:none;
+  box-shadow:0 4px 24px rgba(34,211,165,.35);width:100%;justify-content:center;
+  transition:opacity .2s,transform .15s;
+}
+.btn-go-bot:hover{opacity:.9;transform:translateY(-2px);}
+
+/* ─── TOAST NOTIFICATIONS ───────────────────────────────────────────────── */
+#toast-wrap{
+  position:fixed;top:14px;left:50%;transform:translateX(-50%);
+  z-index:998;display:flex;flex-direction:column;align-items:center;gap:8px;
+  pointer-events:none;
+}
+.toast{
+  display:flex;align-items:center;gap:10px;
+  background:rgba(15,20,32,.95);
+  border:1.5px solid rgba(99,102,241,.35);
+  border-radius:12px;padding:10px 16px;
+  font-size:.82rem;font-weight:600;color:var(--text);
+  box-shadow:0 8px 32px rgba(0,0,0,.5);
+  backdrop-filter:blur(12px);
+  animation:toast-in .35s cubic-bezier(.34,1.2,.64,1);
+  pointer-events:auto;max-width:340px;width:max-content;
+}
+.toast.out{animation:toast-out .3s ease forwards;}
+.toast.yellow{border-color:rgba(251,191,36,.45);color:var(--yellow);}
+.toast.green{border-color:rgba(34,211,165,.45);color:var(--green);}
+.toast.red{border-color:rgba(248,113,113,.45);color:var(--red);}
+.toast.blue{border-color:rgba(96,165,250,.45);color:var(--blue);}
+@keyframes toast-in{0%{opacity:0;transform:translateY(-12px) scale(.93)}100%{opacity:1;transform:none}}
+@keyframes toast-out{0%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-10px) scale(.96)}}
+
+/* ─── CONFETTI ──────────────────────────────────────────────────────────── */
+.confetti-wrap{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;overflow:hidden;z-index:100;}
+.cp{position:absolute;animation:cf-fall linear forwards;}
+@keyframes cf-fall{0%{transform:translateY(-20px) rotate(0deg);opacity:1}100%{transform:translateY(100vh) rotate(720deg);opacity:0}}
+
+/* ─── SPINNER ───────────────────────────────────────────────────────────── */
+.spinner{display:inline-block;width:15px;height:15px;border:2.5px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ─── RESPONSIVE ────────────────────────────────────────────────────────── */
+@media(max-width:420px){
+  .card{padding:20px 15px;}
+  .otp-box{width:38px;height:48px;font-size:1.3rem;}
+  .num-btn{width:70px;height:70px;font-size:1.4rem;}
+  .otp-boxes{gap:6px;}
+}
+@media(max-width:340px){
+  .otp-box{width:34px;height:44px;font-size:1.1rem;border-radius:8px;}
+  .otp-boxes{gap:5px;}
+}
+</style>
+</head>
+<body>
+<div class="confetti-wrap" id="confetti-wrap"></div>
+<div id="toast-wrap"></div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox" onclick="closeLightbox()">
+  <div id="lightbox-close" onclick="closeLightbox()">✕</div>
+  <img id="lightbox-img" src="" alt="Screenshot" oncontextmenu="return false;">
+</div>
+
+<!-- ══ TYPE PANEL (floating keyboard bar) ══ -->
+<div id="type-panel">
+  <div class="tp-header">
+    <span class="tp-title">⌨️ Browser Keyboard</span>
+    <button class="tp-close" onclick="hideTypePanel()">✕</button>
+  </div>
+  <div class="tp-input-row">
+    <input type="text" id="type-input" placeholder="Yahan type karein, phir Send ya Enter dabao..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button class="tp-send-btn" onclick="sendCurrentText()">📤 Send</button>
+  </div>
+  <div class="tp-keys">
+    <button class="tp-key" onclick="sendKey('Backspace')">⌫ Back</button>
+    <button class="tp-key" onclick="sendKey('Tab')">⇥ Tab</button>
+    <button class="tp-key" onclick="sendKey('Escape')">⎋ Esc</button>
+    <button class="tp-key" onclick="sendKey('ArrowUp')">↑</button>
+    <button class="tp-key" onclick="sendKey('ArrowDown')">↓</button>
+    <button class="tp-key" onclick="liveScroll(-200)">🔼 Scroll Up</button>
+    <button class="tp-key" onclick="liveScroll(200)">🔽 Scroll Down</button>
+    <button class="tp-key enter" onclick="sendTypeAndEnter()">↵ Enter</button>
+  </div>
+  <p class="tp-hint">Click karein browser screenshot pe → cursor wahan move hoga · Type here → browser mein type hoga</p>
+</div>
+
+<!-- ══ LIVE BROWSER VIEW ══ -->
+<div id="live-view-card">
+  <div class="lv-header">
+    <div class="lv-title-wrap">
+      <div class="lv-live-badge"><span class="lv-live-dot"></span>LIVE</div>
+      <span class="lv-title">🖥️ Browser Live View</span>
+    </div>
+    <div class="lv-controls">
+      <span class="lv-ts" id="lv-ts">–</span>
+      <button class="lv-btn refresh" onclick="manualRefreshSS()">↻ Refresh</button>
+      <button class="lv-btn zoom" onclick="showTypePanel()">⌨️ Keyboard</button>
+      <button class="lv-btn zoom" onclick="openLightbox()">🔍 Zoom</button>
+    </div>
+  </div>
+  <div class="lv-img-wrap" id="lv-img-wrap" oncontextmenu="return false;">
+    <div id="lv-placeholder">
+      <span class="lv-placeholder-icon">🖥️</span>
+      <span>Login shuru hote hi browser screen dikhega...</span>
+    </div>
+    <img id="lv-img" src="" alt="Live Screenshot" style="display:none" draggable="false">
+    <div class="lv-click-ripple" id="lv-click-ripple"></div>
+    <div class="lv-interact-badge" id="lv-interact-badge">🖱️ Kahin bhi tap karein</div>
+    <div class="lv-zoom-hint" id="lv-zoom-hint">🔍 Zoom</div>
+  </div>
+  <div class="lv-footer">
+    <span class="lv-url" id="lv-url">–</span>
+    <span class="lv-fps-badge"><span class="lv-fps-dot"></span><span id="lv-fps-badge">Live</span></span>
+  </div>
+</div>
+
+<!-- ══ MAIN CARD ══ -->
+<div class="card" id="main-card">
+  <div class="logo-row">
+    <div class="logo-icon">🤖</div>
+    <div class="logo-text">
+      <h1>Google Auto Login</h1>
+      <p>DriveGram Bot · Secure Cookie Extractor</p>
+    </div>
+  </div>
+  <div class="subtitle" id="main-subtitle">
+    Gmail aur password enter karein — bot automatically Google me login karke Drive cookies save karega. Ek baar karo, phir Drive files seamlessly milenge.
+  </div>
+
+  <!-- ══ FORM ══ -->
+  <div id="form-section">
+    <div class="field">
+      <label>📧 Gmail Address</label>
+      <input type="email" id="email" placeholder="yourname@gmail.com" autocomplete="email" spellcheck="false">
+    </div>
+    <div class="field">
+      <label>🔒 Password</label>
+      <div class="input-wrap">
+        <input type="password" id="password" placeholder="Apna Google password" autocomplete="current-password">
+        <button class="eye-btn" type="button" onclick="togglePwd()" title="Show/hide">👁</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>📱 Device / Browser Emulate Karein</label>
+      <select id="device-select" class="device-select">
+        <option value="win_chrome">🖥️ Windows · Chrome</option>
+        <option value="win_edge">🖥️ Windows · Edge</option>
+        <option value="mac_chrome">🍎 macOS · Chrome</option>
+        <option value="mac_safari">🍎 macOS · Safari</option>
+        <option value="linux_chrome">🐧 Linux · Chrome</option>
+        <option value="android_chrome">🤖 Android · Chrome</option>
+        <option value="ios_safari">🍏 iPhone · Safari</option>
+        <option value="ipad_safari">🍏 iPad · Safari</option>
+      </select>
+      <p class="totp-hint">Jo bhi device select karoge, bot bilkul waise hi (User-Agent + screen size) Google ko dikhega.</p>
+    </div>
+    <div class="twofa-suggest">
+      <div class="twofa-suggest-icon">🛡️</div>
+      <div class="twofa-suggest-text">
+        <b>2-Step Verification (2FA) enable karo — login zyada reliable hoga!</b>
+        Google Authenticator app (ya koi bhi authenticator app) apne account me enable karke uska <b>32-char secret key</b> yahan neeche daal do — bot khud OTP generate karke enter kar dega, koi manual code type nahi karna padega, aur "Try another way" screen pe bhi bot khud "Authenticator app" option auto-select kar lega.
+      </div>
+    </div>
+    <button class="totp-toggle" type="button" onclick="toggleTotp()">🔑 Authenticator Secret Key Add Karein</button>
+    <div class="totp-section" id="totp-section">
+      <div class="field">
+        <label>32-Char TOTP Secret Key</label>
+        <input type="text" id="totp-secret" placeholder="ABCD EFGH IJKL MNOP QRST UVWX" spellcheck="false">
+        <p class="totp-hint">⚠️ Authenticator app ka secret key — bot auto-generate karega OTP, koi manual code nahi maangega. Google me Authenticator setup karte waqt "Can't scan it?" pe click karke ye secret key milega.</p>
+      </div>
+    </div>
+    <button class="btn-login" id="login-btn" onclick="startLogin()">🚀 Login Shuru Karein</button>
+    <div class="security-note">
+      <span>🔐</span>
+      <span>Password sirf Google ke server tak jaata hai — hamare server pe store nahi hota. Sirf session cookies save hoti hain.</span>
+    </div>
+  </div>
+
+  <!-- ══ PROGRESS ══ -->
+  <div id="progress-section">
+
+    <!-- Elapsed timer -->
+    <div class="elapsed-row">
+      <span class="elapsed-label">⏱️ Login Time</span>
+      <span class="elapsed-time" id="elapsed-time">0:00</span>
+    </div>
+
+    <div class="prog-header">
+      <span class="prog-label">Login Progress</span>
+      <span class="prog-pct" id="pct-text">0%</span>
+    </div>
+    <div class="prog-track"><div class="prog-fill" id="prog-fill"></div></div>
+
+    <div class="steps-list" id="steps-list">
+      <div class="step-item" id="step-0">
+        <div class="step-dot">📧</div>
+        <div class="step-body"><div class="step-title">Email Verify</div><div class="step-desc">Google account se connect ho raha hai</div></div>
+      </div>
+      <div class="step-item" id="step-1">
+        <div class="step-dot">🔑</div>
+        <div class="step-body"><div class="step-title">Password Check</div><div class="step-desc">Credentials validate ho rahe hain</div></div>
+      </div>
+      <div class="step-item" id="step-2">
+        <div class="step-dot">🛡️</div>
+        <div class="step-body"><div class="step-title">Security Verify</div><div class="step-desc">2FA aur challenges handle ho rahe hain</div></div>
+      </div>
+      <div class="step-item" id="step-3">
+        <div class="step-dot">🍪</div>
+        <div class="step-body"><div class="step-title">Cookies Extract</div><div class="step-desc">Google Drive access tokens collect ho rahe hain</div></div>
+      </div>
+      <div class="step-item" id="step-4">
+        <div class="step-dot">✅</div>
+        <div class="step-body"><div class="step-title">Login Complete</div><div class="step-desc">Sab kuch save ho gaya!</div></div>
+      </div>
+    </div>
+
+    <div class="live-status" id="live-status">
+      <div class="status-dot" id="sdot"></div>
+      <span id="live-txt">Shuru ho raha hai...</span>
+    </div>
+
+    <!-- CONSOLE LOG -->
+    <div class="console-wrap" id="console-wrap">
+      <div class="console-header">
+        <div class="console-title"><span class="console-dot"></span>Live Console</div>
+        <div class="console-actions">
+          <button class="console-btn" onclick="toggleConsole()" id="console-toggle-btn">Hide</button>
+          <button class="console-btn" onclick="clearConsole()">Clear</button>
+        </div>
+      </div>
+      <div class="console-body" id="console-body">
+        <div class="console-empty" id="console-empty">⏳ Waiting for logs...</div>
+      </div>
+    </div>
+
+    <!-- ── SMS / Email / Backup OTP ── -->
+    <div class="challenge-box yellow" id="box-otp">
+      <div class="ch-title yellow">📱 Verification Code Chahiye</div>
+      <div class="ch-sub" id="otp-sub">SMS ya email pe aaya 6-digit code neeche enter karein.</div>
+      <!-- Clipboard paste hint -->
+      <div class="otp-hint-bar" id="otp-hint-bar" onclick="pasteFromClipboard()">
+        📋 <span id="otp-hint-text">Clipboard mein code detected — tap to paste</span>
+      </div>
+      <!-- Split OTP boxes -->
+      <div class="otp-boxes" id="otp-boxes">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" autocomplete="one-time-code" data-idx="0">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="1">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="2">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="3">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="4">
+        <input class="otp-box" type="text" maxlength="1" inputmode="numeric" pattern="[0-9]" data-idx="5">
+      </div>
+      <!-- Hidden full-length input for backup code (8 chars) -->
+      <input class="otp-inp-full" type="text" id="otp-inp-full" placeholder="Backup code (8 digits)" maxlength="10" inputmode="numeric" autocomplete="one-time-code">
+      <button class="btn-ch btn-yellow" id="otp-btn" onclick="submitOtp()">✅ Code Submit Karein</button>
+    </div>
+
+    <!-- ── Phone entry ── -->
+    <div class="challenge-box purple" id="box-phone">
+      <div class="ch-title purple">📞 Phone Number Chahiye</div>
+      <div class="ch-sub">Google aapka phone number verify karna chahta hai. Neeche apna number daalo.</div>
+      <input class="phone-inp" type="tel" id="phone-inp" placeholder="+91 98765 43210" inputmode="tel">
+      <button class="btn-ch btn-purple" id="phone-btn" onclick="submitPhone()">📲 Number Submit Karein</button>
+    </div>
+
+    <!-- ── Number match ── -->
+    <div class="challenge-box purple" id="box-number">
+      <div class="ch-title purple">🔢 Number Match Challenge</div>
+      <div class="ch-sub">Google "Match the Number" verify kar raha hai.<br><strong style="color:#fff">Apne doosre device pe jo number dikh raha hai woh tap karein:</strong></div>
+      <div class="num-wrap" id="num-wrap"></div>
+    </div>
+
+    <!-- ── Device approval ── -->
+    <div class="challenge-box blue" id="box-device">
+      <div class="ch-title blue">📲 Apne Phone pe "Yes" Tap Karein</div>
+      <div class="ch-sub">Google aapke registered phone pe ek notification bhej raha hai.</div>
+      <div class="device-anim"><div class="phone-ring">📱</div></div>
+      <div class="device-steps">
+        <b>Kya karna hai:</b><br>
+        1. Apna phone unlock karein<br>
+        2. Google ya Gmail app kholein<br>
+        3. "Yes, it's me" ya "Haan, main hoon" tap karein<br>
+        4. Bot automatically aage badh jayega ✅
+      </div>
+    </div>
+
+    <!-- ── Choice ── -->
+    <div class="challenge-box purple" id="box-choice">
+      <div class="ch-title purple">🔀 Verification Method Chunein</div>
+      <div class="ch-sub">Google ne alternate verification options diye hain. Jo aapke paas available hai woh chunein:</div>
+      <div class="choice-wrap" id="choice-wrap"></div>
+    </div>
+
+    <!-- ── Unknown / manual ── -->
+    <div class="challenge-box orange" id="box-unknown">
+      <div class="ch-title orange">⚠️ Unknown Challenge Detect Hua</div>
+      <div class="ch-sub">Google ne ek alag challenge diya hai. Screenshot dekh kar samjhein kya ho raha hai:</div>
+      <div class="screenshot-wrap" id="ss-wrap">
+        <div class="screenshot-loading"><span class="spinner"></span>Screenshot load ho rahi hai...</div>
+      </div>
+      <p class="manual-hint">⬆️ Screenshot dekh kar batayein kya challenge hai — phir neeche describe karein aur submit karein.<br>Example: "enter backup code", "verify email", "CAPTCHA", etc.</p>
+      <textarea class="text-inp" id="manual-inp" placeholder="Jo aap dekh rahe hain woh yahan likhen..."></textarea>
+      <button class="btn-ch btn-orange" id="manual-btn" onclick="submitManual()">📤 Submit Karein</button>
+    </div>
+
+    <!-- ── Error ── -->
+    <div class="error-box" id="error-box">
+      <div class="err-title">❌ Login Failed</div>
+      <div id="error-msg">Kuch galat hua.</div>
+      <div id="fail-ss-panel">
+        <div class="fail-ss-header">
+          <div class="fail-ss-title"><span class="fail-ss-badge"></span>Failure Screenshot</div>
+          <div class="fail-ss-actions">
+            <button class="fail-ss-btn" onclick="refreshFailSS()">↻ Refresh</button>
+            <button class="fail-ss-btn" onclick="zoomFailSS()">🔍 Zoom</button>
+          </div>
+        </div>
+        <div class="fail-ss-body" id="fail-ss-body" onclick="zoomFailSS()">
+          <div class="fail-ss-empty" id="fail-ss-empty"><span style="font-size:2rem;display:block;margin-bottom:8px">📷</span>Screenshot load ho rahi hai...</div>
+          <img id="fail-ss-img" src="" alt="Failure Screenshot" style="display:none">
+        </div>
+        <div class="fail-ss-footer" id="fail-ss-ts">– captured at –</div>
+      </div>
+      <button class="btn-retry" onclick="resetForm()">🔄 Dobara Try Karein</button>
+    </div>
+  </div>
+
+  <!-- ══ SUCCESS ══ -->
+  <div id="success-section">
+    <div class="success-icon">🎉</div>
+    <div class="success-title">Login Successful!</div>
+    <div class="success-sub">Google Drive cookies save ho gayi hain.<br>Ab private Drive files access kar sakte hain.</div>
+
+    <!-- Info cards -->
+    <div class="success-info-grid" id="success-info-grid" style="display:none;">
+      <div class="success-info-card">
+        <span class="sic-label">📧 Email</span>
+        <span class="sic-value" id="sic-email">—</span>
+      </div>
+      <div class="success-info-card">
+        <span class="sic-label">🍪 Cookies Saved</span>
+        <span class="sic-value" id="sic-cookies">—</span>
+      </div>
+    </div>
+
+    <div class="success-bot-note" id="success-bot-note" style="display:none;">
+      ✅ Bot pe detailed account info message bhi bhej diya gaya hai!
+    </div>
+
+    <div class="redirect-box">
+      <div class="redirect-label">Bot pe redirect ho raha hai...</div>
+      <span class="redirect-num" id="countdown">5</span>
+      <div class="redirect-label">seconds mein</div>
+    </div>
+    <a class="btn-go-bot" id="bot-link" href="#">📱 Bot mein Wapas Jaayein</a>
+  </div>
+</div>
+
+<script>
+const uid    = new URLSearchParams(window.location.search).get('uid') || '';
+const BOT_URL = '{{ bot_url }}';
+let sid = null, poll = null, curPct = 0, tgtPct = 0, curStep = -1;
+let lastLogTs = 0, logCount = 0;
+let lastSsTs = 0, ssRefreshTimer = null, ssLoaded = false;
+let elapsedTimer = null, elapsedSecs = 0;
+let consoleCollapsed = false;
+
+// ── STATUS → PROGRESS MAP ─────────────────────────────────────────────────
+const SMAP = {
+  'STEP1_EMAIL':         {p:10, s:0, m:'📧 Email verify ho raha hai...'},
+  'AFTER_EMAIL':         {p:16, s:0, m:'✅ Email accepted!'},
+  'STEP2_PASSWORD':      {p:24, s:1, m:'🔑 Password check ho raha hai...'},
+  'AFTER_PWD':           {p:32, s:1, m:'✅ Password submitted...'},
+  'PWD_AGAIN':           {p:34, s:1, m:'🔑 Password dobara verify ho raha hai...'},
+  'LOOP0':               {p:36, s:2, m:'🛡️ Security response check...'},
+  'LOOP1':               {p:39, s:2, m:'🛡️ Challenge handle ho raha hai...'},
+  'LOOP2':               {p:42, s:2, m:'🔄 Google response aa rahi hai...'},
+  'LOOP3':               {p:44, s:2, m:'🔄 Verify ho raha hai...'},
+  'LOOP4':               {p:46, s:2, m:'🔄 Almost done...'},
+  'LOOP5':               {p:48, s:2, m:'🔄 Almost done...'},
+  'LOOP6':               {p:49, s:2, m:'🔄 Almost done...'},
+  'LOOP7':               {p:50, s:2, m:'🔄 Almost done...'},
+  'TOTP_AUTO':           {p:52, s:2, m:'🔐 TOTP code auto-generate ho raha hai...'},
+  'SELECTION':           {p:40, s:2, m:'🔄 Login method select ho raha hai...'},
+  'IAP':                 {p:44, s:2, m:'🔄 Alternative verify method...'},
+  'LOGGED_IN':           {p:75, s:3, m:'✅ Login hua! Cookies extract ho rahi hain...'},
+  'WORKSPACE_LOGGED_IN': {p:75, s:3, m:'✅ Login hua! Cookies extract ho rahi hain...'},
+  'EXTRACTING':          {p:85, s:3, m:'🍪 Drive cookies collect ho rahi hain...'},
+};
+
+// ── OTP BOX LOGIC ─────────────────────────────────────────────────────────
+let _otpMode = 'split'; // 'split' | 'full'
+
+function initOtpBoxes(){
+  const boxes = document.querySelectorAll('.otp-box');
+  boxes.forEach((box, idx) => {
+    box.addEventListener('input', e => {
+      // Allow only digits
+      box.value = box.value.replace(/\D/g,'').slice(-1);
+      box.classList.toggle('filled', box.value.length > 0);
+      if(box.value && idx < boxes.length - 1) boxes[idx+1].focus();
+      checkClipboardHint();
+    });
+    box.addEventListener('keydown', e => {
+      if(e.key === 'Backspace' && !box.value && idx > 0){
+        boxes[idx-1].value = '';
+        boxes[idx-1].classList.remove('filled');
+        boxes[idx-1].focus();
+      }
+      if(e.key === 'Enter') submitOtp();
+      if(e.key === 'ArrowLeft' && idx > 0) boxes[idx-1].focus();
+      if(e.key === 'ArrowRight' && idx < boxes.length-1) boxes[idx+1].focus();
+    });
+    box.addEventListener('paste', e => {
+      e.preventDefault();
+      const txt = (e.clipboardData || window.clipboardData).getData('text').replace(/\D/g,'');
+      if(txt) fillOtpBoxes(txt);
+    });
+    // On focus select content
+    box.addEventListener('focus', () => box.select());
+  });
+}
+
+function fillOtpBoxes(digits){
+  const boxes = document.querySelectorAll('.otp-box');
+  // Switch to full mode for 8-char backup codes
+  if(digits.length > 6){
+    switchToFullOtp();
+    document.getElementById('otp-inp-full').value = digits;
+    return;
+  }
+  digits.split('').forEach((d,i) => {
+    if(boxes[i]){ boxes[i].value = d; boxes[i].classList.add('filled'); }
+  });
+  if(digits.length > 0 && digits.length <= 6) boxes[Math.min(digits.length, 5)].focus();
+}
+
+function getOtpValue(){
+  if(_otpMode === 'full') return document.getElementById('otp-inp-full').value.trim();
+  return [...document.querySelectorAll('.otp-box')].map(b=>b.value).join('');
+}
+
+function clearOtpBoxes(){
+  document.querySelectorAll('.otp-box').forEach(b=>{b.value='';b.classList.remove('filled');});
+  document.getElementById('otp-inp-full').value = '';
+  _otpMode = 'split';
+  document.getElementById('otp-boxes').style.display='flex';
+  document.getElementById('otp-inp-full').style.display='none';
+}
+
+function switchToFullOtp(){
+  _otpMode = 'full';
+  document.getElementById('otp-boxes').style.display='none';
+  document.getElementById('otp-inp-full').style.display='block';
+  document.getElementById('otp-inp-full').focus();
+}
+
+// Clipboard detection
+async function checkClipboardHint(){
+  try{
+    const txt = await navigator.clipboard.readText();
+    const digits = txt.trim().replace(/[\s-]/g,'').replace(/\D/g,'');
+    if(digits.length >= 6 && digits.length <= 8){
+      document.getElementById('otp-hint-text').textContent = `📋 "${digits}" clipboard mein — tap to paste`;
+      document.getElementById('otp-hint-bar').classList.add('show');
+      return;
+    }
+  }catch(e){}
+  document.getElementById('otp-hint-bar').classList.remove('show');
+}
+
+async function pasteFromClipboard(){
+  try{
+    const txt = await navigator.clipboard.readText();
+    const digits = txt.trim().replace(/[\s-]/g,'').replace(/\D/g,'');
+    if(digits) fillOtpBoxes(digits);
+    document.getElementById('otp-hint-bar').classList.remove('show');
+  }catch(e){}
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────
+function togglePwd(){const i=document.getElementById('password');i.type=i.type==='password'?'text':'password';}
+function toggleTotp(){document.getElementById('totp-section').classList.toggle('show');}
+function toggleConsole(){
+  consoleCollapsed = !consoleCollapsed;
+  const body = document.getElementById('console-body');
+  body.style.display = consoleCollapsed ? 'none' : '';
+  document.getElementById('console-toggle-btn').textContent = consoleCollapsed ? 'Show' : 'Hide';
+}
+
+// ── TOAST ─────────────────────────────────────────────────────────────────
+function showToast(msg, type='', duration=4000){
+  const wrap = document.getElementById('toast-wrap');
+  const t = document.createElement('div');
+  t.className = 'toast ' + type;
+  t.textContent = msg;
+  wrap.appendChild(t);
+  setTimeout(()=>{
+    t.classList.add('out');
+    setTimeout(()=>t.remove(), 350);
+  }, duration);
+}
+
+// ── ELAPSED TIMER ─────────────────────────────────────────────────────────
+function startElapsed(){
+  elapsedSecs = 0;
+  elapsedTimer = setInterval(()=>{
+    elapsedSecs++;
+    const m = Math.floor(elapsedSecs/60);
+    const s = (elapsedSecs%60).toString().padStart(2,'0');
+    const el = document.getElementById('elapsed-time');
+    if(el) el.textContent = m+':'+s;
+  }, 1000);
+}
+function stopElapsed(){ clearInterval(elapsedTimer); }
+
+// ── START LOGIN ───────────────────────────────────────────────────────────
+async function startLogin(){
+  const email = document.getElementById('email').value.trim();
+  const pass  = document.getElementById('password').value;
+  const totp  = document.getElementById('totp-secret').value.trim();
+  if(!email || !pass){
+    const f = !email ? 'email' : 'password';
+    const el = document.getElementById(f);
+    el.style.borderColor = 'var(--red)';
+    el.focus();
+    setTimeout(()=>el.style.borderColor='', 2200);
+    showToast('⚠️ '+(!email ? 'Email' : 'Password')+' enter karein!', 'red', 3000);
+    return;
+  }
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span>Shuru ho raha hai...';
+  const deviceSel = document.getElementById('device-select');
+  const device = deviceSel ? deviceSel.value : 'win_chrome';
+  try{
+    const res = await fetch('/api/autologin/start',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({uid, email, password:pass, totp_secret:totp, device})
+    });
+    const d = await res.json();
+    if(!d.ok){
+      showError(d.error || 'Server error.');
+      btn.disabled = false;
+      btn.innerHTML = '🚀 Login Shuru Karein';
+      return;
+    }
+    sid = d.session_id;
+    if(d.viewport && d.viewport.width && d.viewport.height){
+      BROWSER_W = d.viewport.width;
+      BROWSER_H = d.viewport.height;
+    }
+    showProgress();
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){
+    showError('Server se connect nahi hua: '+e.message);
+    btn.disabled = false;
+    btn.innerHTML = '🚀 Login Shuru Karein';
+  }
+}
+
+function showProgress(){
+  document.getElementById('form-section').style.display = 'none';
+  document.getElementById('main-subtitle').style.display = 'none';
+  document.getElementById('progress-section').classList.add('show');
+  document.getElementById('live-view-card').classList.add('show');
+  document.getElementById('lv-img-wrap').classList.add('interactive');
+  _initLiveInteraction();
+  setPct(5, 0, '🔄 Login process shuru ho rahi hai...');
+  startSsAutoRefresh();
+  startElapsed();
+}
+
+// ── SSE LIVE STREAM ───────────────────────────────────────────────────────
+let _sseSource = null, _fpsFrames = 0, _fpsTimer = null;
+
+function startSsAutoRefresh(){
+  if(_sseSource){ _sseSource.close(); _sseSource = null; }
+  _sseSource = new EventSource('/api/autologin/stream?sid=' + sid);
+  const img = document.getElementById('lv-img');
+  const ph  = document.getElementById('lv-placeholder');
+
+  _sseSource.onmessage = e => {
+    const b64 = e.data;
+    if(!b64 || b64.length < 100) return;
+    img.src = 'data:image/jpeg;base64,' + b64;
+    img.style.display = 'block';
+    ph.style.display  = 'none';
+    ssLoaded = true;
+    _fpsFrames++;
+    const now = new Date();
+    document.getElementById('lv-ts').textContent =
+      now.getHours().toString().padStart(2,'0')+':'+
+      now.getMinutes().toString().padStart(2,'0')+':'+
+      now.getSeconds().toString().padStart(2,'0');
+  };
+
+  _sseSource.addEventListener('end', () => stopSsAutoRefresh());
+  _sseSource.onerror = () => {
+    if(_sseSource){ _sseSource.close(); _sseSource = null; }
+    if(!ssRefreshTimer)
+      ssRefreshTimer = setInterval(()=>{ if(sid) refreshSS(); }, 1000);
+  };
+
+  if(_fpsTimer) clearInterval(_fpsTimer);
+  _fpsTimer = setInterval(()=>{
+    const fps = _fpsFrames; _fpsFrames = 0;
+    const badge = document.getElementById('lv-fps-badge');
+    if(badge) badge.textContent = fps > 0 ? fps+' fps' : 'Live';
+  }, 1000);
+}
+
+function stopSsAutoRefresh(){
+  if(_sseSource){ _sseSource.close(); _sseSource = null; }
+  if(ssRefreshTimer){ clearInterval(ssRefreshTimer); ssRefreshTimer = null; }
+  if(_fpsTimer){ clearInterval(_fpsTimer); _fpsTimer = null; }
+  const badge = document.getElementById('lv-fps-badge');
+  if(badge) badge.textContent = 'Done';
+}
+
+function refreshSS(){
+  if(!sid) return;
+  const url = '/api/autologin/screenshot?sid='+sid+'&t='+Date.now();
+  const img = document.getElementById('lv-img');
+  const ph  = document.getElementById('lv-placeholder');
+  const tmp = new Image();
+  tmp.onload = ()=>{
+    img.src = tmp.src; img.style.display='block'; ph.style.display='none'; ssLoaded = true;
+    const now = new Date();
+    document.getElementById('lv-ts').textContent =
+      now.getHours().toString().padStart(2,'0')+':'+
+      now.getMinutes().toString().padStart(2,'0')+':'+
+      now.getSeconds().toString().padStart(2,'0');
+  };
+  tmp.src = url;
+}
+
+function manualRefreshSS(){
+  if(!sid) return;
+  const btn = document.querySelector('.lv-btn.refresh');
+  if(btn){ btn.textContent='↻ ...'; btn.disabled = true; }
+  refreshSS();
+  setTimeout(()=>{ if(btn){ btn.textContent='↻ Refresh'; btn.disabled = false; } }, 900);
+}
+
+function openLightbox(){
+  const img = document.getElementById('lv-img');
+  if(!ssLoaded || !img.src) return;
+  document.getElementById('lightbox-img').src = img.src;
+  document.getElementById('lightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+  _initLightboxInteraction();
+}
+function closeLightbox(){
+  document.getElementById('lightbox').classList.remove('show');
+  document.body.style.overflow = '';
+}
+
+// Zoomed-in view should still be tappable/clickable for precise interaction
+// on small phone screens — bigger image, same live-tap behaviour, and
+// tapping the dark backdrop (outside the image) closes it instead.
+let _lastLbTapTs = 0;
+function _handleLightboxTap(clientX, clientY){
+  if(!sid) return;
+  const lbImg = document.getElementById('lightbox-img');
+  const rect  = lbImg.getBoundingClientRect();
+  let cx = clientX - rect.left, cy = clientY - rect.top;
+  if(cx < 0 || cy < 0 || cx > rect.width || cy > rect.height) return; // tapped backdrop
+  const bx = Math.round((cx/rect.width)  * BROWSER_W);
+  const by = Math.round((cy/rect.height) * BROWSER_H);
+  sendInteract({action:'click', x:bx, y:by}).then(res=>{
+    if(res && res.is_field) showTypePanel();
+  });
+  // Reflect the tap on the zoomed image too, then refresh shortly after
+  setTimeout(()=>{ const src = document.getElementById('lv-img').src; if(src) lbImg.src = src; }, 400);
+}
+function _initLightboxInteraction(){
+  const lbImg = document.getElementById('lightbox-img');
+  if(lbImg._interactBound) return;
+  lbImg._interactBound = true;
+  lbImg.addEventListener('touchend', (e)=>{
+    if(e.changedTouches && e.changedTouches.length){
+      const t = e.changedTouches[0];
+      _lastLbTapTs = Date.now();
+      _handleLightboxTap(t.clientX, t.clientY);
+      e.preventDefault(); e.stopPropagation();
+    }
+  }, { passive:false });
+  lbImg.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(Date.now() - _lastLbTapTs < 600) return;
+    _handleLightboxTap(e.clientX, e.clientY);
+  });
+}
+
+// ── INTERACTIVE LIVE VIEW ─────────────────────────────────────────────────
+let BROWSER_W = 1366, BROWSER_H = 768;
+let _lastLiveTapTs = 0;
+
+// Resolve the tap/click coordinates relative to the rendered image,
+// no matter where inside the wrap the user tapped (works for mouse,
+// touch and pen input — "wherever the user taps, that's where it clicks").
+function _resolveLiveCoords(clientX, clientY){
+  const img  = document.getElementById('lv-img');
+  const wrap = document.getElementById('lv-img-wrap');
+  const rect = img.getBoundingClientRect();
+  const wRect = wrap.getBoundingClientRect();
+  // Clamp the tap into the actual rendered image bounds so edge taps
+  // (near the border of the wrap) still register instead of being ignored.
+  let cx = clientX - rect.left;
+  let cy = clientY - rect.top;
+  cx = Math.max(0, Math.min(cx, rect.width));
+  cy = Math.max(0, Math.min(cy, rect.height));
+  return { cx, cy, rect, wRect };
+}
+
+function handleLiveTap(clientX, clientY){
+  const img = document.getElementById('lv-img');
+  // If no active session or no screenshot yet, open lightbox as a fallback
+  if(!sid || !ssLoaded || !img.src || img.style.display==='none'){
+    openLightbox(); return;
+  }
+  const { cx, cy, rect } = _resolveLiveCoords(clientX, clientY);
+  const bx = Math.round((cx/rect.width)  * BROWSER_W);
+  const by = Math.round((cy/rect.height) * BROWSER_H);
+  showClickRipple(cx, cy, rect);
+  // Keyboard should only pop up when the tap actually landed on a real
+  // text field — the server checks the exact element under the tap and
+  // tells us via is_field, instead of opening it on every single click.
+  sendInteract({action:'click', x:bx, y:by}).then(res=>{
+    if(res && res.is_field) showTypePanel();
+  });
+}
+
+// Legacy name kept for any inline references
+function handleLiveClick(e){ handleLiveTap(e.clientX, e.clientY); }
+
+function _initLiveInteraction(){
+  const wrap = document.getElementById('lv-img-wrap');
+  if(!wrap || wrap._interactBound) return;
+  wrap._interactBound = true;
+
+  // Touch devices: fire on touchend so it works reliably on Android/iOS,
+  // and suppress the ghost "click" event that follows a touch.
+  wrap.addEventListener('touchend', (e) => {
+    if(e.changedTouches && e.changedTouches.length){
+      const t = e.changedTouches[0];
+      _lastLiveTapTs = Date.now();
+      handleLiveTap(t.clientX, t.clientY);
+      e.preventDefault();
+    }
+  }, { passive: false });
+
+  // Mouse / pen / fallback click — ignored right after a touch to avoid
+  // double-firing the same tap.
+  wrap.addEventListener('click', (e) => {
+    if(Date.now() - _lastLiveTapTs < 600) return;
+    handleLiveTap(e.clientX, e.clientY);
+  });
+}
+
+function showClickRipple(cx, cy, imgRect){
+  const ripple = document.getElementById('lv-click-ripple');
+  const wrap   = document.getElementById('lv-img-wrap');
+  const wRect  = wrap.getBoundingClientRect();
+  const rx = imgRect.left - wRect.left + cx;
+  const ry = imgRect.top  - wRect.top  + cy;
+  ripple.style.left    = rx + 'px';
+  ripple.style.top     = ry + 'px';
+  ripple.style.display = 'block';
+  ripple.style.animation = 'none';
+  ripple.offsetHeight;   // force reflow
+  ripple.style.animation = 'ripple-expand .6s ease-out forwards';
+  setTimeout(()=>{ ripple.style.display='none'; }, 700);
+}
+
+async function sendInteract(payload){
+  if(!sid) return null;
+  try{
+    const res = await fetch('/api/autologin/interact',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({sid, ...payload})
+    });
+    return await res.json();
+  }catch(e){ return null; }
+}
+
+async function sendKey(key){
+  await sendInteract({action:'key', key});
+  showToast(`⌨️ ${key} sent`, '', 1200);
+}
+
+async function sendCurrentText(){
+  const inp  = document.getElementById('type-input');
+  const text = inp.value;
+  if(!text.trim()) return;
+  inp.disabled = true;
+  await sendInteract({action:'type', text});
+  inp.value = '';
+  inp.disabled = false;
+  inp.focus();
+  showToast(`✍️ Typed: "${text}"`, 'green', 2000);
+}
+
+async function sendTypeAndEnter(){
+  const inp = document.getElementById('type-input');
+  if(inp.value.trim()) await sendCurrentText();
+  await sendInteract({action:'key', key:'Enter'});
+  showToast('↵ Enter sent', 'green', 1200);
+}
+
+async function liveScroll(dy){
+  await sendInteract({action:'scroll', dx:0, dy});
+}
+
+function showTypePanel(){
+  document.getElementById('type-panel').classList.add('show');
+  setTimeout(()=>{ document.getElementById('type-input').focus(); }, 120);
+}
+
+function hideTypePanel(){
+  document.getElementById('type-panel').classList.remove('show');
+  document.getElementById('type-input').value = '';
+}
+
+// ── PROGRESS ──────────────────────────────────────────────────────────────
+function setPct(p, stepIdx, msg){
+  tgtPct = Math.min(100, Math.max(0, p));
+  animPct();
+  document.getElementById('prog-fill').style.width = tgtPct + '%';
+  if(msg) document.getElementById('live-txt').textContent = msg;
+  if(stepIdx >= 0 && stepIdx !== curStep){
+    if(curStep >= 0){
+      const old = document.getElementById('step-'+curStep);
+      if(old){ old.classList.remove('active'); old.classList.add('done'); old.querySelector('.step-dot').textContent = '✓'; }
+    }
+    curStep = stepIdx;
+    const el = document.getElementById('step-'+stepIdx);
+    if(el){ el.classList.add('active'); el.scrollIntoView({behavior:'smooth', block:'nearest'}); }
+  }
+}
+function animPct(){
+  const el = document.getElementById('pct-text');
+  const diff = tgtPct - curPct;
+  if(Math.abs(diff) < 0.5){ curPct = tgtPct; el.textContent = Math.round(tgtPct)+'%'; return; }
+  curPct += diff * 0.12;
+  el.textContent = Math.round(curPct)+'%';
+  requestAnimationFrame(animPct);
+}
+
+// ── CONSOLE ───────────────────────────────────────────────────────────────
+function appendLog(entry){
+  const body  = document.getElementById('console-body');
+  const empty = document.getElementById('console-empty');
+  if(empty) empty.remove();
+  const d  = new Date(entry.ts * 1000);
+  const ts = d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0')+':'+d.getSeconds().toString().padStart(2,'0');
+  const row = document.createElement('div');
+  row.className = 'cl ' + (entry.lvl || 'info');
+  row.innerHTML = '<span class="cl-ts">'+ts+'</span><span class="cl-msg">'+entry.msg+'</span>';
+  body.appendChild(row);
+  logCount++;
+  body.scrollTop = body.scrollHeight;
+}
+function clearConsole(){
+  document.getElementById('console-body').innerHTML = '<div class="console-empty" id="console-empty">Console cleared.</div>';
+  logCount = 0;
+}
+
+// ── POLL STATUS ───────────────────────────────────────────────────────────
+async function pollStatus(){
+  if(!sid) return;
+  try{
+    const res = await fetch('/api/autologin/status?sid='+sid+'&since='+lastLogTs);
+    const d   = await res.json();
+    const st = d.status, msg = d.message || '', raw = d.raw_status || '';
+
+    if(d.logs && d.logs.length > 0)
+      d.logs.forEach(e=>{ appendLog(e); lastLogTs = Math.max(lastLogTs, e.ts); });
+
+    if(d.ss_ts && d.ss_ts > lastSsTs){ lastSsTs = d.ss_ts; refreshSS(); }
+
+    for(const [k,v] of Object.entries(SMAP))
+      if(raw.startsWith(k)){ setPct(v.p, v.s, v.m); break; }
+    if(msg && msg.length > 2) document.getElementById('live-txt').textContent = msg;
+
+    hideAllChallenges();
+
+    if(st === 'need_otp'){
+      clearInterval(poll);
+      const ot = d.otp_type || 'sms';
+      const subs = {
+        sms:           '📱 SMS pe aaya 6-digit code daalo:',
+        totp:          '🔐 Authenticator app ka 6-digit code:',
+        backup:        '🔑 Google backup code daalo (8 digits):',
+        email:         '📧 Recovery email pe aaya code daalo:',
+        security_code: '🔐 Trusted device ya Google app se security code:',
+        phone_last_digits:'📱 Phone number ke last digits enter karein:',
+        recovery_email:'📧 Apna recovery email address type karein:',
+        app:           '📲 Google app mein dikhne wala code:'
+      };
+      document.getElementById('otp-sub').textContent = subs[ot] || subs['sms'];
+      // Backup codes are 8 chars — switch to full input
+      if(ot === 'backup'){
+        switchToFullOtp();
+        document.getElementById('box-otp').classList.add('show');
+        document.getElementById('otp-inp-full').focus();
+      } else {
+        clearOtpBoxes();
+        document.getElementById('box-otp').classList.add('show');
+        const boxes = document.querySelectorAll('.otp-box');
+        if(boxes[0]) boxes[0].focus();
+      }
+      setPct(55, 2, '⏳ Verification code ka wait kar rahe hain...');
+      showToast('📱 Verification code chahiye — check karein!', 'yellow', 6000);
+      checkClipboardHint();
+    } else if(st === 'need_phone'){
+      clearInterval(poll);
+      document.getElementById('box-phone').classList.add('show');
+      document.getElementById('phone-inp').focus();
+      setPct(45, 2, '📞 Phone number submit karein...');
+      showToast('📞 Phone number chahiye!', 'blue', 6000);
+    } else if(st === 'need_number_match'){
+      clearInterval(poll);
+      buildNums(d.numbers || []);
+      document.getElementById('box-number').classList.add('show');
+      setPct(50, 2, '🔢 Number match karein...');
+      showToast('🔢 Number match challenge — ek number chunein!', 'blue', 6000);
+    } else if(st === 'need_device_approval'){
+      document.getElementById('box-device').classList.add('show');
+      setPct(52, 2, '📲 Apne phone pe "Yes" tap karein...');
+      if(!poll) poll = setInterval(pollStatus, 3000);
+    } else if(st === 'need_manual'){
+      clearInterval(poll);
+      loadScreenshot('/api/autologin/screenshot?sid='+sid+'&t='+Date.now());
+      document.getElementById('box-unknown').classList.add('show');
+      setPct(48, 2, '⚠️ Manual action chahiye...');
+      showToast('⚠️ Unknown challenge — screenshot dekho!', 'red', 7000);
+    } else if(st === 'need_choice'){
+      clearInterval(poll);
+      buildChoices(d.choices || []);
+      document.getElementById('box-choice').classList.add('show');
+      setPct(50, 2, '🔀 Verification method chunein...');
+      showToast('🔀 Ek verification method chunein', '', 5000);
+    } else if(st === 'success'){
+      clearInterval(poll);
+      stopSsAutoRefresh();
+      stopElapsed();
+      setPct(100, 4, '🎉 Login successful!');
+      markAllDone();
+      showToast('🎉 Login successful!', 'green', 4000);
+      setTimeout(()=>showSuccess(d), 700);
+    } else if(st === 'error'){
+      clearInterval(poll);
+      stopSsAutoRefresh();
+      stopElapsed();
+      showError(msg || 'Login fail hua.');
+    }
+  }catch(e){}
+}
+
+function hideAllChallenges(){
+  ['box-otp','box-phone','box-number','box-device','box-unknown','box-choice']
+    .forEach(id => document.getElementById(id).classList.remove('show'));
+}
+
+// ── CHALLENGE BUILDERS ────────────────────────────────────────────────────
+function buildChoices(opts){
+  const w = document.getElementById('choice-wrap'); w.innerHTML = '';
+  opts.forEach(opt=>{
+    const b = document.createElement('button');
+    b.className = 'choice-btn'; b.textContent = opt;
+    b.onclick = () => submitChoice(opt, b);
+    w.appendChild(b);
+  });
+}
+async function submitChoice(text, btnEl){
+  document.querySelectorAll('.choice-btn').forEach(b=>b.disabled=true);
+  if(btnEl) btnEl.classList.add('selected');
+  try{
+    await fetch('/api/autologin/choice',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,text})});
+    setPct(52, 2, '🔀 Option submit hua, aage badh rahe hain...');
+    setTimeout(()=>document.getElementById('box-choice').classList.remove('show'), 800);
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){
+    document.querySelectorAll('.choice-btn').forEach(b=>b.disabled=false);
+    if(btnEl) btnEl.classList.remove('selected');
+  }
+}
+
+function buildNums(nums){
+  const w = document.getElementById('num-wrap'); w.innerHTML = '';
+  nums.forEach(n=>{
+    const b = document.createElement('button');
+    b.className = 'num-btn'; b.textContent = n;
+    b.onclick = () => submitNum(n, b);
+    w.appendChild(b);
+  });
+}
+async function submitNum(num, btnEl){
+  document.querySelectorAll('.num-btn').forEach(b=>b.disabled=true);
+  btnEl.classList.add('selected');
+  try{
+    await fetch('/api/autologin/number_match',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid,number:num})});
+    setPct(57, 2, '🔢 Number select hua, verify ho raha hai...');
+    setTimeout(()=>document.getElementById('box-number').classList.remove('show'), 800);
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){
+    document.querySelectorAll('.num-btn').forEach(b=>b.disabled=false);
+    btnEl.classList.remove('selected');
+  }
+}
+
+async function loadScreenshot(url){
+  const wrap = document.getElementById('ss-wrap');
+  wrap.innerHTML = '<div class="screenshot-loading"><span class="spinner"></span>Screenshot load ho rahi hai...</div>';
+  try{
+    const img = new Image(); img.className = 'screenshot-img';
+    img.onload  = () => { wrap.innerHTML=''; wrap.appendChild(img); };
+    img.onerror = () => { wrap.innerHTML = '<div class="screenshot-placeholder">📷 Screenshot available nahi hai — Live View dekho.</div>'; };
+    img.src = url;
+  }catch(e){ wrap.innerHTML = '<div class="screenshot-placeholder">Screenshot load nahi hua.</div>'; }
+}
+
+// ── SUBMIT HANDLERS ───────────────────────────────────────────────────────
+async function submitOtp(){
+  const otp = getOtpValue();
+  if(!otp || otp.length < 4){
+    const first = document.querySelector('.otp-box');
+    if(first) first.focus();
+    return;
+  }
+  const btn = document.getElementById('otp-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submit ho raha hai...';
+  try{
+    await fetch('/api/autologin/otp',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid, otp})});
+    setPct(65, 2, '✅ Code submit hua, verify ho raha hai...');
+    document.getElementById('box-otp').classList.remove('show');
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){ btn.disabled=false; btn.innerHTML='✅ Code Submit Karein'; }
+}
+
+async function submitPhone(){
+  const phone = document.getElementById('phone-inp').value.trim();
+  if(!phone){ document.getElementById('phone-inp').focus(); return; }
+  const btn = document.getElementById('phone-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submit ho raha hai...';
+  try{
+    await fetch('/api/autologin/phone',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid, phone})});
+    setPct(55, 2, '📞 Phone submit hua, SMS aane ka wait...');
+    document.getElementById('box-phone').classList.remove('show');
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){ btn.disabled=false; btn.innerHTML='📲 Number Submit Karein'; }
+}
+
+async function submitManual(){
+  const txt = document.getElementById('manual-inp').value.trim();
+  if(!txt){ document.getElementById('manual-inp').focus(); return; }
+  const btn = document.getElementById('manual-btn');
+  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Submit ho raha hai...';
+  try{
+    await fetch('/api/autologin/manual',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid, text:txt})});
+    setPct(58, 2, '📤 Action submit hua, wait karein...');
+    document.getElementById('box-unknown').classList.remove('show');
+    poll = setInterval(pollStatus, 2500);
+  }catch(e){ btn.disabled=false; btn.innerHTML='📤 Submit Karein'; }
+}
+
+// ── SUCCESS / ERROR ───────────────────────────────────────────────────────
+function markAllDone(){
+  const icons = ['📧','🔑','🛡️','🍪','✅'];
+  for(let i=0;i<=4;i++){
+    const el = document.getElementById('step-'+i);
+    if(el){ el.classList.remove('active'); el.classList.add('done'); el.querySelector('.step-dot').textContent='✓'; }
+  }
+}
+
+function showSuccess(d){
+  document.getElementById('progress-section').style.display = 'none';
+  document.getElementById('success-section').classList.add('show');
+
+  // Populate info cards
+  const email       = (d && d.email)        ? d.email        : '';
+  const cookieCount = (d && d.cookie_count) ? d.cookie_count : '';
+  const botMsgSent  = d && d.bot_msg_sent;
+  if(email || cookieCount){
+    if(email)       { document.getElementById('sic-email').textContent   = email; }
+    if(cookieCount) { document.getElementById('sic-cookies').textContent = cookieCount + ' cookies'; }
+    document.getElementById('success-info-grid').style.display = 'grid';
+  }
+  if(botMsgSent){
+    document.getElementById('success-bot-note').style.display = 'block';
+  }
+
+  // Bot URL for redirect — include ?start=autogin_{uid} deeplink so the bot
+  // receives /start autogin_{uid} and can send the post-login success message.
+  const _baseUrl = (BOT_URL && BOT_URL.startsWith('https://t.me/')) ? BOT_URL : '';
+  const _startParam = uid ? ('autogin_' + uid) : '';
+  const url = _baseUrl
+    ? (_startParam ? _baseUrl + '?start=' + _startParam : _baseUrl)
+    : 'https://t.me';
+  document.getElementById('bot-link').href = url;
+  spawnConfetti();
+
+  let c = 5; document.getElementById('countdown').textContent = c;
+  const t = setInterval(()=>{
+    c--; document.getElementById('countdown').textContent = c;
+    if(c <= 0){
+      clearInterval(t);
+      // If opened inside Telegram WebApp, close the webview (returns to bot chat)
+      if(window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData){
+        window.Telegram.WebApp.close();
+      } else if(url && url !== 'https://t.me'){
+        window.location.href = url;
+      }
+      // else: no valid bot URL — just stay on page, user can click button manually
+    }
+  }, 1000);
+}
+
+function showError(msg){
+  document.getElementById('error-box').classList.add('show');
+  document.getElementById('error-msg').textContent = msg;
+  const dot = document.getElementById('sdot');
+  dot.style.background = 'var(--red)'; dot.style.animation = 'none';
+  document.getElementById('live-txt').textContent = '❌ ' + msg;
+  document.getElementById('fail-ss-panel').classList.add('show');
+  showToast('❌ Login fail hua', 'red', 5000);
+  const liveImg = document.getElementById('lv-img');
+  if(liveImg && liveImg.src && liveImg.style.display !== 'none') _setFailSS(liveImg.src);
+  if(sid) setTimeout(refreshFailSS, 500);
+}
+
+function refreshFailSS(){
+  if(!sid) return;
+  const url = '/api/autologin/screenshot?sid='+sid+'&t='+Date.now();
+  const tmp = new Image();
+  tmp.onload  = () => _setFailSS(tmp.src);
+  tmp.onerror = () => {
+    const img = document.getElementById('fail-ss-img');
+    if(!img.src || img.style.display==='none')
+      document.getElementById('fail-ss-empty').innerHTML = '<span style="font-size:2rem;display:block;margin-bottom:8px">📷</span>Screenshot available nahi — Live View dekho.';
+  };
+  tmp.src = url;
+}
+
+function _setFailSS(src){
+  const img   = document.getElementById('fail-ss-img');
+  const empty = document.getElementById('fail-ss-empty');
+  const tsEl  = document.getElementById('fail-ss-ts');
+  img.src = src; img.style.display = 'block';
+  if(empty) empty.style.display = 'none';
+  const now = new Date();
+  if(tsEl) tsEl.textContent = `📸 Captured at ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')} — Google ka last state`;
+}
+
+function zoomFailSS(){
+  const img = document.getElementById('fail-ss-img');
+  if(!img || !img.src || img.style.display==='none') return;
+  document.getElementById('lightbox-img').src = img.src;
+  document.getElementById('lightbox').classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+
+// ── RESET ─────────────────────────────────────────────────────────────────
+function resetForm(){
+  sid = null; clearInterval(poll); stopSsAutoRefresh(); stopElapsed();
+  curStep=-1; curPct=0; tgtPct=0; lastLogTs=0; logCount=0; lastSsTs=0; ssLoaded=false; elapsedSecs=0;
+  hideAllChallenges();
+  hideTypePanel();
+  document.getElementById('lv-img-wrap').classList.remove('interactive');
+  document.getElementById('error-box').classList.remove('show');
+  document.getElementById('fail-ss-panel').classList.remove('show');
+  document.getElementById('progress-section').classList.remove('show');
+  document.getElementById('live-view-card').classList.remove('show');
+  const failImg = document.getElementById('fail-ss-img');
+  if(failImg){ failImg.src=''; failImg.style.display='none'; }
+  const failEmpty = document.getElementById('fail-ss-empty');
+  if(failEmpty){ failEmpty.style.display=''; failEmpty.innerHTML='<span style="font-size:2rem;display:block;margin-bottom:8px">📷</span>Screenshot load ho rahi hai...'; }
+  const failTs = document.getElementById('fail-ss-ts');
+  if(failTs) failTs.textContent = '– captured at –';
+  document.getElementById('form-section').style.display = '';
+  document.getElementById('main-subtitle').style.display = '';
+  const btn = document.getElementById('login-btn');
+  btn.disabled = false; btn.innerHTML = '🚀 Login Shuru Karein';
+  document.getElementById('pct-text').textContent = '0%';
+  document.getElementById('prog-fill').style.width = '0%';
+  document.getElementById('elapsed-time').textContent = '0:00';
+  clearOtpBoxes();
+  document.getElementById('phone-inp').value = '';
+  document.getElementById('manual-inp').value = '';
+  document.getElementById('otp-hint-bar').classList.remove('show');
+  document.getElementById('lv-img').style.display = 'none';
+  document.getElementById('lv-img').src = '';
+  document.getElementById('lv-placeholder').style.display = 'flex';
+  document.getElementById('lv-ts').textContent = '–';
+  document.getElementById('lv-url').textContent = '–';
+  const icons = ['📧','🔑','🛡️','🍪','✅'];
+  for(let i=0;i<=4;i++){
+    const el = document.getElementById('step-'+i);
+    if(el){ el.classList.remove('active','done'); el.querySelector('.step-dot').textContent=icons[i]; }
+  }
+  const dot = document.getElementById('sdot');
+  dot.style.background = ''; dot.style.animation = '';
+  document.getElementById('live-txt').textContent = 'Shuru ho raha hai...';
+  const cb = document.getElementById('console-body');
+  if(cb) cb.innerHTML = '<div class="console-empty" id="console-empty">⏳ Waiting for logs...</div>';
+}
+
+// ── CONFETTI ──────────────────────────────────────────────────────────────
+function spawnConfetti(){
+  const w = document.getElementById('confetti-wrap');
+  const cols = ['#6366f1','#22d3a5','#fbbf24','#f472b6','#60a5fa','#a78bfa','#34d399'];
+  for(let i=0;i<100;i++){
+    const p = document.createElement('div'); p.className='cp';
+    p.style.left = Math.random()*100+'vw';
+    p.style.background = cols[Math.floor(Math.random()*cols.length)];
+    p.style.width  = (Math.random()*8+4)+'px';
+    p.style.height = (Math.random()*8+4)+'px';
+    p.style.borderRadius = Math.random()>.5 ? '50%' : '3px';
+    p.style.animationDuration = (Math.random()*2.5+1.5)+'s';
+    p.style.animationDelay   = (Math.random()*.8)+'s';
+    w.appendChild(p);
+    setTimeout(()=>p.remove(), 5000);
+  }
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  initOtpBoxes();
+  document.getElementById('phone-inp').addEventListener('keydown', e=>{ if(e.key==='Enter') submitPhone(); });
+  document.getElementById('password').addEventListener('keydown', e=>{ if(e.key==='Enter') startLogin(); });
+  document.getElementById('otp-inp-full').addEventListener('keydown', e=>{ if(e.key==='Enter') submitOtp(); });
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape'){ closeLightbox(); } });
+  // Type panel — Enter in type-input = send text + Enter to browser
+  document.getElementById('type-input').addEventListener('keydown', e=>{
+    if(e.key==='Enter'){ e.preventDefault(); sendTypeAndEnter(); }
+  });
+});
+</script>
+</body>
+</html>

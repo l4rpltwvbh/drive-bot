@@ -1,0 +1,37 @@
+# Playwright browsers (use system nix-store playwright instead)
+.playwright-browsers/
+.playwright/
+
+# Python cache & compiled files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.pythonlibs/
+
+# pip cache
+.cache/
+
+# Downloads and temp files
+downloads/
+thumbnails/
+*.log
+/tmp/
+
+# Local session files
+*.session
+*.session-journal
+
+# Env files
+.env
+.env.*
+
+# IDE
+.vscode/
+.idea/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/

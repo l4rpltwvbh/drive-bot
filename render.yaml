@@ -1,0 +1,34 @@
+services:
+  - type: web
+    name: gdrive-bot
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: python bot.py
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: SESSION_STRING
+        sync: false
+      - key: MONGO_URI
+        sync: false
+      - key: GDRIVE_API_KEY
+        sync: false
+      - key: ADMIN_IDS
+        sync: false
+      - key: DUMP_CHANNEL_ID
+        sync: false
+      - key: LOG_CHANNEL_ID
+        sync: false
+      - key: DB_GROUP_ID
+        sync: false
+      - key: FORCE_SUB_CHANNELS
+        sync: false
+      - key: PUBLIC_URL
+        fromService:
+          type: web
+          name: gdrive-bot
+          property: host

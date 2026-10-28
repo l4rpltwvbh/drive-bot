@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cookies Extracted!</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 16px;
+  }
+  .card {
+    background: #1a1a1a;
+    border: 1px solid #2a2a2a;
+    border-radius: 16px;
+    padding: 28px 24px;
+    max-width: 620px;
+    width: 100%;
+    margin-bottom: 16px;
+  }
+  h1 { font-size: 1.4rem; color: #4cff91; margin-bottom: 6px; }
+  .sub { color: #888; font-size: 0.88rem; margin-bottom: 20px; }
+  .cookie-box {
+    background: #0d0d0d;
+    border: 1px solid #1e5c3a;
+    border-radius: 10px;
+    padding: 14px;
+    font-family: monospace;
+    font-size: 0.78rem;
+    color: #ccc;
+    word-break: break-all;
+    white-space: pre-wrap;
+    max-height: 240px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+  .copy-btn {
+    background: #1e5c3a;
+    color: #4cff91;
+    border: 1px solid #2a6644;
+    border-radius: 10px;
+    padding: 12px 20px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    cursor: pointer;
+    margin-top: 14px;
+    width: 100%;
+    transition: background 0.2s;
+    letter-spacing: 0.3px;
+  }
+  .copy-btn:hover { background: #256e47; }
+  .copy-btn.done { background: #0a3020; color: #4cff91; }
+  .steps {
+    background: #141414;
+    border: 1px solid #252525;
+    border-radius: 10px;
+    padding: 16px;
+    margin-top: 16px;
+    font-size: 0.86rem;
+    color: #aaa;
+    line-height: 2;
+  }
+  .steps b { color: #fff; }
+  .steps span { color: #4b8cf7; }
+  .alert {
+    background: #1a1000;
+    border: 1px solid #443300;
+    color: #ffcc44;
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-size: 0.82rem;
+    margin-top: 14px;
+    line-height: 1.5;
+  }
+  .empty-state {
+    text-align: center;
+    padding: 30px 0;
+    color: #666;
+    font-size: 0.9rem;
+  }
+  .empty-state a {
+    color: #4b8cf7;
+    text-decoration: none;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  {% if cookies %}
+    <h1>✅ Cookies mil gayi!</h1>
+    <p class="sub">Neeche se copy karein aur Telegram bot mein paste karein.</p>
+
+    <div class="cookie-box" id="cookie-text">{{ cookies }}</div>
+
+    <button class="copy-btn" id="copy-btn" onclick="doCopy()">
+      📋 Sab Cookies Copy Karein
+    </button>
+
+    <div class="steps">
+      <b>Ab kya karna hai:</b><br>
+      1. Upar wala <b>"Copy" button</b> dabayein<br>
+      2. Telegram mein bot ke paas jaayein<br>
+      3. Wahan <b>paste</b> karein (<span>Ctrl+V</span> ya long press → Paste)<br>
+      4. Bot automatically cookies save kar lega ✅
+    </div>
+
+    <div class="alert">
+      ⚠️ <b>Yeh cookies private hain.</b> Sirf is bot ke saath share karein. Kisi aur ko mat dein.
+    </div>
+
+  {% else %}
+    <h1>🍪 Google Cookies Extractor</h1>
+    <p class="sub">Koi cookies nahi mili.</p>
+    <div class="empty-state">
+      Bookmarklet sahi se nahi chali.<br><br>
+      <a href="/cookie">← Wapas jaayein aur dobara try karein</a>
+    </div>
+  {% endif %}
+</div>
+
+<script>
+  function doCopy() {
+    const text = document.getElementById('cookie-text').textContent.trim();
+    navigator.clipboard.writeText(text).then(() => {
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = '✅ Copy ho gaya! Telegram mein paste karein.';
+      btn.classList.add('done');
+      setTimeout(() => {
+        btn.textContent = '📋 Sab Cookies Copy Karein';
+        btn.classList.remove('done');
+      }, 4000);
+    }).catch(() => {
+      const area = document.createElement('textarea');
+      area.value = text;
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      document.body.removeChild(area);
+      const btn = document.getElementById('copy-btn');
+      btn.textContent = '✅ Copy ho gaya!';
+      setTimeout(() => { btn.textContent = '📋 Sab Cookies Copy Karein'; }, 3000);
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Google Login — Result</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0f0f0f;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+  }
+  .card {
+    background: #1a1a1a;
+    border-radius: 16px;
+    padding: 36px 28px;
+    max-width: 420px;
+    width: 100%;
+    text-align: center;
+  }
+  .icon { font-size: 3rem; margin-bottom: 16px; }
+  h1 { font-size: 1.3rem; color: #fff; margin-bottom: 10px; }
+  .info { font-size: 0.9rem; color: #aaa; line-height: 1.7; margin-bottom: 20px; }
+  .info b { color: #ddd; }
+  .success-card { border: 1px solid #2a6644; }
+  .error-card   { border: 1px solid #8b0000; }
+  .back-btn {
+    display: inline-block;
+    background: #1e4d2a;
+    color: #4cff91;
+    border: 1px solid #2a6644;
+    border-radius: 10px;
+    padding: 11px 24px;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    margin-top: 4px;
+  }
+  .err-txt { color: #ff6b6b; }
+</style>
+</head>
+<body>
+{% if success %}
+<div class="card success-card">
+  <div class="icon">✅</div>
+  <h1>Login Successful!</h1>
+  <div class="info">
+    <b>{{ name }}</b> ke roop mein login ho gaya.<br>
+    📧 {{ email }}<br><br>
+    Google Drive access ab bot ke paas hai.<br>
+    Telegram bot mein wapas jaayein.
+  </div>
+  <a class="back-btn" href="https://t.me">📱 Bot mein Wapas Jaayein</a>
+</div>
+{% else %}
+<div class="card error-card">
+  <div class="icon">❌</div>
+  <h1>Login Fail Hua</h1>
+  <div class="info err-txt">{{ error }}</div>
+  <br>
+  <div class="info">Wapas bot mein jaayein aur dobara try karein.</div>
+</div>
+{% endif %}
+</body>
+</html>
