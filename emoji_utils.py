@@ -85,7 +85,7 @@ def _make_wrapper(original, text_kwarg="text", text_pos=1, pm_pos=2):
     """
     @functools.wraps(original)
     def wrapper(*args, **kwargs):
-        from pyrogram import enums as _enums
+        from ftmgram import enums as _enums
 
         args = list(args)
 
@@ -130,8 +130,8 @@ def patch_all():
     """
     _load()
 
-    from pyrogram import Client
-    from pyrogram.types import Message, CallbackQuery
+    from ftmgram import Client
+    from ftmgram.types import Message, CallbackQuery
 
     # (class, method_name, text_pos, pm_pos)
     # All indices are 0-based including self:

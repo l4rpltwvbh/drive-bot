@@ -34,6 +34,7 @@ _folder_tree_cache  = {}   # uid -> {folder_id, tree}
 _download_callbacks = {}   # uid -> callable(files_list)
 _cookie_callbacks   = {}   # uid -> callable(cookie_str)
 _oauth_callbacks    = {}   # uid -> callable(user_info dict)
+_global_oauth_callback = None # callable(uid: int, user_info: dict)
 _status_callbacks   = {}   # uid -> callable(event, data)   ← for log channel
 
 # Autologin sessions: sid -> {status, message, otp_type?, email, uid, logs:[]}
@@ -93,6 +94,11 @@ def register_status_callback(uid: int, callback):
 
 def register_oauth_callback(uid: int, callback):
     _oauth_callbacks[uid] = callback
+
+
+def set_global_oauth_callback(callback):
+    global _global_oauth_callback
+    _global_oauth_callback = callback
 
 
 def start_in_background(port: int = 8080):
@@ -205,7 +211,7 @@ def _get_base_url():
     return f"http://localhost:{port}"
 
 
-_oauth_state_map = {}  # state -> uid
+_oauth_state_map = {}  # state -> (uid, code_verifier)
 
 @app.route("/oauth/login")
 def oauth_login():
@@ -218,23 +224,37 @@ def oauth_login():
         include_granted_scopes="true",
         prompt="consent",
     )
-    _oauth_state_map[state] = uid
+    _oauth_state_map[state] = (uid, getattr(flow, "code_verifier", None))
     return redirect(auth_url)
 
 
 @app.route("/oauth/callback")
 def oauth_callback():
     state = request.args.get("state", "")
-    uid   = _oauth_state_map.pop(state, None)
-    if not uid:
+    state_data = _oauth_state_map.pop(state, None)
+    if not state_data:
         return render_template("oauth_result.html", success=False, error="Invalid OAuth state."), 400
+
+    if isinstance(state_data, tuple):
+        uid, code_verifier = state_data
+    else:
+        uid, code_verifier = state_data, None
 
     flow = _get_oauth_flow(uid)
     if not flow:
         return render_template("oauth_result.html", success=False, error="OAuth not configured."), 503
 
+    if code_verifier:
+        flow.code_verifier = code_verifier
+
     try:
-        flow.fetch_token(authorization_response=request.url.replace("http://", "https://"))
+        kwargs = {}
+        if code_verifier:
+            kwargs["code_verifier"] = code_verifier
+        flow.fetch_token(
+            authorization_response=request.url.replace("http://", "https://"),
+            **kwargs
+        )
         creds = flow.credentials
 
         import google.oauth2.credentials
@@ -257,9 +277,21 @@ def oauth_callback():
 
         cb = _oauth_callbacks.pop(int(uid), None)
         if cb:
-            threading.Thread(target=cb, args=(user_info,), daemon=True).start()
+            try:
+                threading.Thread(target=cb, args=(user_info,), daemon=True).start()
+            except Exception as _e:
+                print(f"[OAUTH] User callback trigger error: {_e}")
 
-        return render_template("oauth_result.html", success=True, name=name, email=email)
+        if _global_oauth_callback:
+            try:
+                threading.Thread(target=_global_oauth_callback, args=(int(uid), user_info), daemon=True).start()
+            except Exception as _e:
+                print(f"[OAUTH] Global callback trigger error: {_e}")
+
+        bot_username = os.environ.get("BOT_USERNAME", "").lstrip("@")
+        bot_url = f"https://t.me/{bot_username}" if bot_username else "https://t.me/ftm_drivebot"
+
+        return render_template("oauth_result.html", success=True, name=name, email=email, bot_url=bot_url)
     except Exception as e:
         print(f"[OAUTH] Callback error: {e}")
         return render_template("oauth_result.html", success=False, error=str(e)), 500
@@ -925,9 +957,14 @@ def _run_autologin(sid: str, uid, email: str, password: str, totp_secret: str, d
         os.environ["LD_LIBRARY_PATH"] = _replit_ld + ":" + os.environ.get("LD_LIBRARY_PATH", "")
         os.environ["LD_LIBRARY_PATH"] = os.environ["LD_LIBRARY_PATH"].strip(":")
 
-    # ── Find best Chromium: hardcoded NixOS system paths first (no slow glob) ──
+    # ── Find best Chromium: Windows official Chrome + Linux paths ──
     def _find_best_chromium():
         candidates = [
+            # Windows official Chrome & Edge
+            r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+            r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+            os.path.expandvars(r"%LocalAppData%\Google\Chrome\Application\chrome.exe"),
+            r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe",
             # NixOS system chromium — self-contained, all libs in rpath (newest first)
             "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium",
             "/nix/store/khk7xpgsm5insk81azy9d560yq4npf77-chromium-131.0.6778.204/bin/chromium",
@@ -944,15 +981,17 @@ def _run_autologin(sid: str, uid, email: str, password: str, totp_secret: str, d
         # Also check any workspace playwright cache dynamically (fast — limited scope)
         candidates += _glob.glob("/home/runner/workspace/.cache/ms-playwright/chromium*/chrome-linux64/chrome")
         for p in candidates:
-            if os.path.isfile(p) and os.access(p, os.X_OK):
+            if os.path.isfile(p) and (os.name == "nt" or os.access(p, os.X_OK)):
                 return p
         return None
 
     chromium = _find_best_chromium()
     log(f"Chromium: {chromium or 'NOT FOUND — playwright default'}")
 
+    is_windows = os.name == "nt"
     launch_kwargs = dict(
-        headless=True,
+        headless=False if is_windows else True,
+        ignore_default_args=["--enable-automation"],
         args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu",
               "--disable-blink-features=AutomationControlled",
               "--lang=en-IN,en"],
@@ -1001,6 +1040,11 @@ def _run_autologin(sid: str, uid, email: str, password: str, totp_secret: str, d
                     pass
             ctx = br.new_context(**_ctx_kwargs)
             pg = ctx.new_page()
+            try:
+                from playwright_stealth.stealth import Stealth
+                Stealth().apply_stealth_sync(pg)
+            except Exception as _st_err:
+                print(f"[STEALTH] Stealth apply warning: {_st_err}", flush=True)
             # Expose page object so /api/autologin/interact can forward clicks/keys
             _sess_update(_page=pg, _page_vp=(_vp["width"], _vp["height"]))
 

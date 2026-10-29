@@ -24,12 +24,19 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests as _requests
+from requests.adapters import HTTPAdapter
 
-CHUNK_SIZE   = 8 * 1024 * 1024   # 8 MB
-MAX_WORKERS  = 8
-MAX_RETRIES  = 3
+CHUNK_SIZE   = 16 * 1024 * 1024   # 16 MB chunks for maximum throughput
+MAX_WORKERS  = 16                 # 16 parallel threads
+MAX_RETRIES  = 4
 CONN_TIMEOUT = 15
 READ_TIMEOUT = 90
+
+# Shared connection-pooled session to eliminate TCP/TLS handshake overhead
+_adapter = HTTPAdapter(pool_connections=32, pool_maxsize=32, max_retries=2)
+_session = _requests.Session()
+_session.mount("https://", _adapter)
+_session.mount("http://", _adapter)
 
 
 # ── URL / header sanitizers ────────────────────────────────────────────────────
@@ -94,16 +101,16 @@ def _download_chunk(url: str, headers: dict, start: int, end: int,
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
-            resp = _requests.get(url, headers=h,
-                                 timeout=(CONN_TIMEOUT, READ_TIMEOUT),
-                                 stream=True)
+            resp = _session.get(url, headers=h,
+                                timeout=(CONN_TIMEOUT, READ_TIMEOUT),
+                                stream=True)
             if resp.status_code not in (200, 206):
                 last_exc = Exception(f"HTTP {resp.status_code}")
-                time.sleep(2 ** attempt)
+                time.sleep(1 + attempt)
                 continue
             with open(out_path, "r+b") as f:
                 f.seek(start)
-                for chunk in resp.iter_content(chunk_size=256 * 1024):
+                for chunk in resp.iter_content(chunk_size=1024 * 1024):
                     if chunk:
                         f.write(chunk)
                         with prog_lock:
@@ -111,7 +118,7 @@ def _download_chunk(url: str, headers: dict, start: int, end: int,
             return
         except Exception as e:
             last_exc = e
-            time.sleep(2 ** attempt)
+            time.sleep(1 + attempt)
     raise last_exc or Exception("Chunk download failed after retries")
 
 

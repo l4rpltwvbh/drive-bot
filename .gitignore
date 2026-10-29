@@ -35,3 +35,12 @@ thumbnails/
 dist/
 build/
 *.egg-info/
+cloudflared.exe
+.tunnel_url
+*.png
+test_profile/
+ftm/
+test_*.py
+save_cookies.py
+start_tunnel.py
+

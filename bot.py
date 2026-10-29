@@ -1,4 +1,6 @@
 import os
+from dotenv import load_dotenv
+load_dotenv()
 import aiohttp
 import socket
 import platform
@@ -16,6 +18,12 @@ import glob
 import queue as _queue_mod
 import logging
 import sys
+
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 from zoneinfo import ZoneInfo
 from collections import deque
 import psutil
@@ -38,10 +46,12 @@ import requests
 import gdown
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
-from pyrogram import Client, filters, enums, idle as pyrogram_idle, raw as raw_api
-from pyrogram.errors import FloodWait
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, WebAppInfo
-from pyrogram import utils as pyroutils
+import ftmgram
+import ftmgram as pyrogram
+from ftmgram import Client, filters, enums, idle as pyrogram_idle, raw as raw_api
+from ftmgram.errors import FloodWait
+from ftmgram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery, WebAppInfo
+from ftmgram import utils as pyroutils
 
 pyroutils.MIN_CHAT_ID = -999999999999
 pyroutils.MIN_CHANNEL_ID = -100999999999999
@@ -107,11 +117,11 @@ FOLDER_DB_CHANNEL_ID = _parse_channel_id(os.environ.get("FOLDER_DB_CHANNEL_ID", 
 BOT_VERSION     = os.environ.get("BOT_VERSION", "v7.5.0 [ Sᴛᴀʙʟᴇ ]")
 
 # ── Ultra Plan config ─────────────────────────────────────────────────────────
-ULTRA_PLAN_NAME          = os.environ.get("ULTRA_PLAN_NAME", "Ultra Plan")
-ULTRA_PLAN_PRICE         = os.environ.get("ULTRA_PLAN_PRICE", "₹2/month")
+ULTRA_PLAN_NAME          = os.environ.get("ULTRA_PLAN_NAME", "VIP Ultra Plan")
+ULTRA_PLAN_PRICE         = os.environ.get("ULTRA_PLAN_PRICE", "₹1,500/month")
 ULTRA_PLAN_DURATION_DAYS = int(os.environ.get("ULTRA_PLAN_DURATION_DAYS", "30"))
 UPI_ID                   = os.environ.get("UPI_ID", "developerkumar@fam")
-PLAN_CONTACT_URL         = os.environ.get("PLAN_CONTACT_URL", "https://t.me/ftmdeveloperzbot?start=plan_lena_hai_drive_wale_bot_ka")
+PLAN_CONTACT_URL         = os.environ.get("PLAN_CONTACT_URL", "https://t.me/ftmdevz")
 FORCE_PLAN_REQUIRED      = os.environ.get("FORCE_PLAN_REQUIRED", "true").lower() == "true"
 HOW_TO_USE_URL           = os.environ.get("HOW_TO_USE_URL", "https://t.me/ftmbotzx_tutorials/52")
 
@@ -471,13 +481,15 @@ DONE_KB = InlineKeyboardMarkup([[
 ]])
 
 _welcome_rows = [
-    [InlineKeyboardButton("⚙️  Open Settings",    callback_data="settings_open"),
-     InlineKeyboardButton("ℹ️  Help",             callback_data="help_info")],
-    [InlineKeyboardButton("💎  My Plan",           callback_data="myplan_check"),
-     InlineKeyboardButton("👨‍💼  Contact Admin",   url=PLAN_CONTACT_URL)],
+    [InlineKeyboardButton("🌐  Connect Google Drive", callback_data="login_menu_open"),
+     InlineKeyboardButton("⚙️  Settings",             callback_data="settings_open")],
+    [InlineKeyboardButton("💎  VIP Plan (₹1500)",     callback_data="myplan_check"),
+     InlineKeyboardButton("ℹ️  Help & Commands",      callback_data="help_info")],
+    [InlineKeyboardButton("🤖  Buy This Bot / Clone", url="https://t.me/ftmdevz"),
+     InlineKeyboardButton("👨‍💻  Contact Admin",       url=PLAN_CONTACT_URL)],
 ]
 if HOW_TO_USE_URL:
-    _welcome_rows.append([InlineKeyboardButton("📖  How to Use", url=HOW_TO_USE_URL)])
+    _welcome_rows.append([InlineKeyboardButton("📖  How to Use Guide", url=HOW_TO_USE_URL)])
 WELCOME_KB = InlineKeyboardMarkup(_welcome_rows)
 
 
@@ -555,8 +567,8 @@ def get_browse_url(uid: int, folder_id: str) -> str:
 
 def cookie_login_kb(uid: int) -> InlineKeyboardMarkup:
     rows = [
-        [InlineKeyboardButton("🤖 Auto Login (Gmail/Password)", url=get_autologin_url(uid))],
-        [InlineKeyboardButton("🔗 Manual Cookie Guide", url=get_cookie_page_url(uid))],
+        [InlineKeyboardButton("🤖 Auto Login (Gmail / Password)", url=get_autologin_url(uid))],
+        [InlineKeyboardButton("🔗 Cookie WebApp / Guide", url=get_cookie_page_url(uid))],
         [InlineKeyboardButton("🍪 Paste Cookies (.json)", callback_data="paste_cookies")],
         [
             InlineKeyboardButton("🔄 Retry",    callback_data="retry_task"),
@@ -572,19 +584,22 @@ def _build_account_status(uid: int) -> tuple:
     Used by /login command and Settings → My Account.
     """
     saved = db.get_google_cookies(uid)
+
     if not saved:
         text = (
             "👤 <b>My Google Account</b>\n\n"
             "❌ <b>Logged out</b> — koi account connected nahi hai.\n\n"
-            "Private Drive files download karne ke liye apna Google account connect karein.\n\n"
-            "<b>2 tarike hain login karne ke:</b>\n"
-            "🤖 <b>Auto Login</b> — Gmail + Password do, bot khud login karega\n"
-            "🔗 <b>Manual</b> — J2Team extension se cookies extract karo"
+            "Private Drive files & folders download karne ke liye apna Google account connect karein.\n\n"
+            "<b>Tareeqe:</b>\n"
+            "🤖 <b>Auto Login</b> — Gmail + Password enter karein, bot khud live login karega\n"
+            "🔗 <b>Cookie WebApp</b> — WebApp se direct cookies sync karein\n"
+            "🍪 <b>Manual Cookies</b> — Extension se exported cookies paste karein"
         )
         kb = InlineKeyboardMarkup([
-            [InlineKeyboardButton("🤖 Auto Login (Gmail/Password)", url=get_autologin_url(uid))],
-            [InlineKeyboardButton("🔗 Manual Cookie Guide", url=get_cookie_page_url(uid))],
+            [InlineKeyboardButton("🤖 Auto Login (Gmail / Password)", url=get_autologin_url(uid))],
+            [InlineKeyboardButton("🔗 Cookie WebApp", url=get_cookie_page_url(uid))],
             [InlineKeyboardButton("🍪 Paste Cookies (.json)", callback_data="paste_cookies")],
+            [InlineKeyboardButton("◀️ Back to Main Menu", callback_data="start_menu_back")],
         ])
         return text, kb
 
@@ -637,6 +652,7 @@ def _build_account_status(uid: int) -> tuple:
              InlineKeyboardButton("🗑 Logout",   callback_data="gc_logout")],
             [InlineKeyboardButton("🔁 Re-login (Auto)", url=get_autologin_url(uid))],
             [InlineKeyboardButton("🍪 Re-login (Manual)", callback_data="paste_cookies")],
+            [InlineKeyboardButton("◀️ Back to Main Menu", callback_data="start_menu_back")],
         ])
     else:
         text = (
@@ -650,6 +666,7 @@ def _build_account_status(uid: int) -> tuple:
             [InlineKeyboardButton("🔗 Extract Guide",    url=get_cookie_page_url(uid))],
             [InlineKeyboardButton("🍪 Paste Cookies",    callback_data="paste_cookies")],
             [InlineKeyboardButton("🗑 Logout",           callback_data="gc_logout")],
+            [InlineKeyboardButton("◀️ Back to Main Menu", callback_data="start_menu_back")],
         ])
     return text, kb
 
@@ -711,6 +728,7 @@ def get_drive_account_info(cookie_str: str) -> dict:
             return result
 
         html = resp.text
+        dec_html = html.replace(r"\x22", '"').replace(r"\x5b", "[").replace(r"\x5d", "]")
 
         # ── Extract email ──────────────────────────────────────────────────
         email = None
@@ -718,7 +736,7 @@ def get_drive_account_info(cookie_str: str) -> dict:
             r'"([\w.+%-]+@(?:gmail|googlemail)\.com)"',
             r'"([\w.+%-]+@[\w.-]+\.[a-z]{2,})"',
         ]:
-            for m in _re.finditer(pat, html):
+            for m in _re.finditer(pat, dec_html):
                 candidate = m.group(1)
                 if (not any(x in candidate for x in ("gstatic", "google.", "schema", "w3.org"))
                         and len(candidate) < 80):
@@ -736,50 +754,66 @@ def get_drive_account_info(cookie_str: str) -> dict:
 
         # ── Extract name ───────────────────────────────────────────────────
         name = None
-        # Pattern verified: null,null,null,"King"],null,[[<STORAGE_LIMIT_BYTES>
-        m = _re.search(
-            r'null,null,null,"([A-Za-z\u0080-\uFFFF][^"]{0,60}?)"\],null,\[\[\d{9,}',
-            html
-        )
-        if m and m.group(1) not in ("true", "false", "null", "name"):
-            name = m.group(1)
+        m_signed = _re.search(r'Signed in as ([^"]+)', dec_html)
+        if m_signed:
+            name = m_signed.group(1).strip()
+
+        if not name:
+            m = _re.search(
+                r'"([A-Za-z\u0080-\uFFFF][^"]{0,60}?)"\],null,\[\[\d{9,}',
+                dec_html
+            )
+            if m and m.group(1) not in ("true", "false", "null", "name"):
+                name = m.group(1).strip()
 
         if not name:
             # Fallback: first quoted capitalized word near the email
-            idx = html.find(f'"{email}"')
+            idx = dec_html.find(f'"{email}"')
             if idx > 0:
-                snippet = html[max(0, idx - 600):idx]
+                snippet = dec_html[max(0, idx - 600):idx + 400]
                 nm = _re.search(r'"([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)"', snippet)
                 if nm:
                     name = nm.group(1)
 
-        name = name or email.split("@")[0]   # last resort: use username part
+        name = name or (email.split("@")[0] if email else "Unknown")
 
         # ── Extract storage ────────────────────────────────────────────────
-        # Verified pattern: [[LIMIT_BYTES, DRIVE_USED, TOTAL_USED, 0, [[null,DRIVE,1],[null,GMAIL,2],...
         storage_limit = 0
         storage_used  = 0
-        sm = _re.search(
-            r'\[\[(\d{9,}),(\d+),(\d+),\d+,\[\[null,(\d+),1\],\[null,(\d+),2\]',
-            html
-        )
         drive_used = gmail_used = photos_used = 0
+
+        sm = _re.search(
+            r'\[\[(\d{9,}),(\d+),(\d+),\d+,\[\[null,(\d+),(\d+)\],\[null,(\d+),(\d+)\],\[null,(\d+),(\d+)\]',
+            dec_html
+        )
         if sm:
             storage_limit = int(sm.group(1))
-            storage_used  = int(sm.group(3))   # total used (drive + gmail + photos)
-            drive_used    = int(sm.group(4))   # Drive only
-            gmail_used    = int(sm.group(5))   # Gmail only
-            photos_used   = max(0, storage_used - drive_used - gmail_used)
+            storage_used  = int(sm.group(3))
+            comp_map = {
+                int(sm.group(5)): int(sm.group(4)),
+                int(sm.group(7)): int(sm.group(6)),
+                int(sm.group(9)): int(sm.group(8)),
+            }
+            drive_used  = comp_map.get(1, int(sm.group(2)))
+            gmail_used  = comp_map.get(2, 0)
+            photos_used = comp_map.get(4, max(0, storage_used - drive_used - gmail_used))
         else:
-            # Simpler fallback
-            sm2 = _re.search(r'\[\[(\d{10,}),(\d+),(\d+)', html)
+            sm2 = _re.search(r'\[\[(\d{10,}),(\d+),(\d+)', dec_html)
             if sm2:
                 storage_limit = int(sm2.group(1))
+                drive_used    = int(sm2.group(2))
                 storage_used  = int(sm2.group(3))
+                photos_used   = max(0, storage_used - drive_used)
 
-        # Determine account type from email domain
-        account_type = "Gmail Account"
-        if email and not email.lower().endswith(("@gmail.com", "@googlemail.com")):
+        # Determine account type from limit or domain
+        account_type = "Free Gmail (15 GB)"
+        if storage_limit >= 4 * 1024**4:
+            account_type = "Google One Pro (5 TB)"
+        elif storage_limit >= 1800 * 1024**3:
+            account_type = "Google One Premium (2 TB)"
+        elif storage_limit >= 90 * 1024**3:
+            account_type = "Google One Basic"
+        elif email and not email.lower().endswith(("@gmail.com", "@googlemail.com")):
             account_type = "Workspace Account"
 
         result.update({
@@ -1250,21 +1284,19 @@ def create_forum_topic_raw(client: Client, chat_id: int, title: str):
 
 def _plan_contact_kb() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
-        [InlineKeyboardButton("💎 Plan Lena Hai? Admin Se Baat Karo!", url=PLAN_CONTACT_URL)],
+        [InlineKeyboardButton("💎 Buy VIP Plan (₹1,500/mo)", url=PLAN_CONTACT_URL)],
+        [InlineKeyboardButton("🤖 Get Your Own Bot (@ftmdevz)", url="https://t.me/ftmdevz")],
+        [InlineKeyboardButton("🔄 Check My Plan", callback_data="myplan_check"),
+         InlineKeyboardButton("◀️ Main Menu", callback_data="start_menu_back")],
     ])
 
 
 _ROAST_LINES = [
-    "Bhai, seedha bolunga — <b>tu free mein nahi chalega yahan.</b> 💸\nYe koi dharamshala nahi hai!",
-    "Oho, link bhej diya! Aur plan? <b>Wo toh ghar pe bhool aaya kya?</b> 🤡",
-    "Bhai tune link bheja, bot ne dekha, plan check kiya... <b>aur hamare beech ek khamoshi chhaa gayi.</b> 😶",
-    "Interesting move — link bheja bina plan ke. <b>Bold strategy, cotton. Let's see if it pays off.</b> Spoiler: nahi payega. 😂",
-    "Yaar, ye bot itna bhi bhi bevakoof nahi hai. <b>Bina plan ke? Nahi chalega.</b> 🙅",
-    "Tune link bheja, humne haath jod liya. <b>Pehle ₹2 ka plan le, phir baat karte hain.</b> 🙏",
-    "Bhai kitni beizzati karwaoge apni? <b>₹2 ka plan nahi le sakte?</b> Do chai chhodd do mahine bhar — plan free mein aa jayega! ☕",
-    "Server ne link dekha, file ne reply kiya, <b>but wallet ne beech mein hi roke diya.</b> 💔",
-    "Bhai tu toh bahut creative hai — bina plan ke bot use karne ki koshish! <b>Par yahan creativity se kaam nahi, ₹2 se kaam chalega.</b> 😎",
-    "Haan haan, link bhej de. Bot toh hai, <b>par plan nahi hai toh processor bhi strike pe hai.</b> 🪧",
+    "⚠️ <b>VIP Plan Required!</b>\nGoogle Drive files & folders process karne ke liye active VIP plan hona zaroori hai.",
+    "🔒 <b>Access Restricted!</b>\nBina plan ke direct download access available nahi hai. Abhi VIP plan activate karein!",
+    "💎 <b>VIP Membership Needed!</b>\nHigh-speed Google Drive downloading ke liye VIP plan active hona chahiye.",
+    "🚀 <b>Premium Feature!</b>\nGoogle Drive links ko ultra-fast speed se Telegram pe laane ke liye VIP plan join karein.",
+    "⚡ <b>Fast-Track Your Downloads!</b>\nPrivate files, shared drives aur bulk folders download karne ke liye VIP plan lein.",
 ]
 
 import random as _random
@@ -1273,13 +1305,18 @@ def _plan_required_msg(client, message, uid: int, display: str = None):
     roast = _random.choice(_ROAST_LINES)
     text = (
         f"{roast}\n\n"
-        f"━━━━━━━━━━━━━━━━━━━\n"
-        f"💎 <b>{ULTRA_PLAN_NAME}</b>\n"
-        f"━━━━━━━━━━━━━━━━━━━\n\n"
-        f"⚠️ <b>Bina plan ke ek bhi link process nahi hoga.</b>\n"
-        f"Admin se contact karo aur plan lo 👇\n\n"
-        f"🆔 <b>Tumhara User ID:</b> <code>{uid}</code>\n"
-        f"<i>(Yeh ID admin ko bhejo payment ke saath)</i>"
+        f"╭━━━━〔 💎 VIP MEMBERSHIP 〕━━━━╮\n"
+        f"│  💰 Price    : {ULTRA_PLAN_PRICE}\n"
+        f"│  ⏳ Duration : 30 Days (1 Month)\n"
+        f"│  ⚡ Speed    : Unlimited High-Speed\n"
+        f"│  📁 Folders  : Full Batch Support\n"
+        f"│  🔐 Private  : 1-Click OAuth Access\n"
+        f"╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        f"🤖 <b>Apna Khud Ka Bot Banwana Hai?</b>\n"
+        f"Source code, clone bot ya custom bot setup lene ke liye admin se contact karein:\n"
+        f"👉 <b>Contact Admin:</b> @ftmdevz\n\n"
+        f"🆔 <b>Aapka User ID:</b> <code>{uid}</code>\n"
+        f"<i>(Payment ke baad yeh User ID admin @ftmdevz ko bhejein)</i>"
     )
     message.reply_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=_plan_contact_kb())
     # ── Log to channel ────────────────────────────────────────────────────
@@ -1289,7 +1326,7 @@ def _plan_required_msg(client, message, uid: int, display: str = None):
         f"🚫 #PlanRequired #uid_{uid}\n\n"
         f"👤 User: {mention} (<code>{uid}</code>)\n"
         f"📛 Name: {h(_disp)}\n"
-        f"💎 Plan: <b>None / Expired</b>\n"
+        f"💎 Plan: <b>None / Expired ({ULTRA_PLAN_PRICE})</b>\n"
         f"⏰ {_now_str()}"
     )
 
@@ -1999,12 +2036,13 @@ def _make_session(num_threads: int = 16, cookies: dict = None) -> requests.Sessi
 
 
 def _drive_auth_download(url: str, cookies: dict, filepath: str,
-                          progress_cb=None, cancel_fn=None, meta_out: dict = None) -> int:
+                          progress_cb=None, cancel_fn=None, meta_out: dict = None,
+                          auth_headers: dict = None) -> int:
     """
-    Download any Google Drive / Docs URL with authenticated cookies.
+    Download any Google Drive / Docs URL with authenticated cookies or OAuth headers.
     Cookies are sent as a raw Cookie: header to bypass Python cookiejar
     domain-matching restrictions (which break on drive.usercontent.google.com).
-    Redirects are followed manually so cookies are sent at every hop.
+    Redirects are followed manually so cookies and auth are sent at every hop.
     If meta_out dict is provided, it is populated with:
       suggested_filename — real filename from Content-Disposition header
       content_type       — MIME type from response
@@ -2023,6 +2061,8 @@ def _drive_auth_download(url: str, cookies: dict, filepath: str,
     # Reuse a fast session with connection pooling
     _sess = _make_session(num_threads=4, cookies=cookies)
     base_hdrs = {"User-Agent": UA, "Accept-Encoding": "identity"}
+    if auth_headers:
+        base_hdrs.update(auth_headers)
     if cookie_hdr:
         base_hdrs["Cookie"] = cookie_hdr
 
@@ -3919,19 +3959,13 @@ def process_single_file(client, message, uid, file_id, hint_name="",
             saved_cookies    = parse_cookie_str(saved_cookie_str) if saved_cookie_str else {}
             cookie_str_for_api = _cookies_dict_to_str(saved_cookies)
 
-            _oauth_tok  = db.get_oauth_tokens(uid) or {}
-            _acc_tok    = _oauth_tok.get("access_token",  "")
-            _ref_tok    = _oauth_tok.get("refresh_token", "")
-
-            # ── Drive API v3 file resolver: best-effort metadata + download URL ──
+            # ── Drive API file resolver: best-effort metadata + download URL ──
             _resolved   = {}
             try:
                 from drive_utils import resolve_file_info as _resolve_fi
                 _resolved = _resolve_fi(
                     file_id,
                     cookies=saved_cookies,
-                    access_token=_acc_tok,
-                    refresh_token=_ref_tok,
                 )
             except Exception as _res_err:
                 print(f"[RESOLVER] Non-fatal error for {file_id}: {_res_err}")
@@ -3963,7 +3997,7 @@ def process_single_file(client, message, uid, file_id, hint_name="",
             _edit(f"<b>{prefix}🔄 Stream URL fetch ho rahi hai…</b>")
             _stream_ok = False
 
-            if not saved_cookies and not _acc_tok:
+            if not saved_cookies:
                 _edit(
                     f"<b>{prefix}❌ Google Account Linked Nahi Hai</b>\n\n"
                     "Is file ko download karne ke liye pehle Google account se login karein.\n\n"
@@ -4019,8 +4053,8 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     title               = _vid_title or hint_name or "video"
                     file_type           = "video"
                     _stream_ok          = True
-                    print(f"[DIRECT] get_video_info OK — "
-                          f"video={bool(_vid_url)} audio={bool(_aud_url)} title={title!r}")
+                    _aud_status = "Separate" if _aud_url else "Muxed (Inbuilt)"
+                    print(f"[DIRECT] get_video_info OK — video=True audio={_aud_status} title={title!r}")
                 except Exception as _sv_err:
                     print(f"[DIRECT] get_video_info failed ({_sv_err}), trying uc?export…")
 
@@ -4032,9 +4066,9 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                 if not mime_type and _ext == ".pdf":
                     mime_type = "application/pdf"
                 file_type = "file"
-                cdn_url   = f"https://drive.google.com/uc?export=download&id={file_id}"
+                cdn_url   = f"https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
                 cookies   = saved_cookies
-                print(f"[DIRECT] uc?export=download fallback for {file_id}")
+                print(f"[DIRECT] usercontent download fallback for {file_id}")
 
             # ── PDF / Google Workspace document check ────────────────────────
             if not mime_type and mime_hint:
@@ -4482,8 +4516,13 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                                   "AppleWebKit/537.36 (KHTML, like Gecko) "
                                   "Chrome/124.0.0.0 Safari/537.36",
                     "Cookie":   cookie_str_for_api,
-                    "Referer":  "https://drive.google.com/",
+                    "Referer":  f"https://drive.google.com/file/d/{file_id}/view",
+                    "Origin":   "https://drive.google.com",
+                    "X-Goog-AuthUser": "0",
                 }
+                _sap = (cookies.get("SAPISID") or cookies.get("__Secure-1PAPISID") or "") if isinstance(cookies, dict) else ""
+                if _sap:
+                    _stream_hdrs["Authorization"] = "SAPISIDHASH " + compute_sapisidhash(_sap, "https://drive.google.com")
 
                 # Size check via Range request
                 _pre_size = 0
@@ -4505,14 +4544,18 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     _audio_tmp = filepath + "_audio.m4a"
                     _edit(f"<b>{prefix}⬇️ Video + Audio parallel download ho rahe hain…</b>")
 
+                    _t_start_va = time.time()
                     def _va_prog(v_done, v_total, a_done, a_total):
                         now = time.time()
-                        if now - last_edit["t"] < 2: return
-                        last_edit["t"] = now
                         comb_done  = v_done + a_done
                         comb_total = (v_total or 0) + (a_total or 0)
+                        elapsed    = max(0.1, now - _t_start_va)
+                        speed      = comb_done / elapsed
+                        eta        = (comb_total - comb_done) / speed if (speed > 0 and comb_total > comb_done) else 0
+                        if now - last_edit["t"] < 2: return
+                        last_edit["t"] = now
                         _edit(draw_progress_card(
-                            valid_title, comb_done, comb_total, 0, 0, 0,
+                            valid_title, comb_done, comb_total, speed, elapsed, eta,
                             file_index, total, nt), CANCEL_KB, block=False)
 
                     try:
@@ -4579,12 +4622,16 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                         print(f"[RESOLVE_FALLBACK] Audio empty/missing — keeping video-only")
                 else:
                     # Video only (muxed stream)
-                    def _stream_prog(done, total_b, label):
+                    _t_start_s = time.time()
+                    def _stream_prog(done, total_b, label=""):
                         now = time.time()
+                        elapsed = max(0.1, now - _t_start_s)
+                        speed   = done / elapsed
+                        eta     = (total_b - done) / speed if (speed > 0 and total_b > done) else 0
                         if now - last_edit["t"] < 2: return
                         last_edit["t"] = now
                         _edit(draw_progress_card(
-                            valid_title, done, total_b, 0, 0, 0,
+                            valid_title, done, total_b, speed, elapsed, eta,
                             file_index, total, nt), CANCEL_KB, block=False)
 
                     try:
@@ -5203,16 +5250,8 @@ def process_folder(client, message, uid, folder_id, status_msg):
     file_list = None
     _public_err = None
 
-    # Try OAuth tokens first (best for private folders too)
-    _oauth_row    = db.get_oauth_tokens(uid)
-    _access_token = ""
-    _refresh_tok  = ""
-    if _oauth_row:
-        _access_token = _oauth_row.get("access_token", "")
-        _refresh_tok  = _oauth_row.get("refresh_token", "")
-
     try:
-        file_list = list_folder_file_ids(folder_id, access_token=_access_token)
+        file_list = list_folder_file_ids(folder_id)
     except PermissionError:
         pass
     except Exception as fe:
@@ -5262,9 +5301,7 @@ def process_folder(client, message, uid, folder_id, status_msg):
                 if not _alpha_on:
                     print(f"[BROWSE] Alpha OFF — skipping cache, fetching fresh (private) uid={uid}")
                 prefetched_tree = build_folder_tree(
-                    folder_id, cookies,
-                    access_token=_access_token,
-                    refresh_token=_refresh_tok,
+                    folder_id, cookies=cookies
                 )
                 real_name = prefetched_tree.get("name") or "Drive Folder"
                 if real_name in ("Root", ""):
@@ -6132,6 +6169,28 @@ def check_force_sub(client: Client, message: Message) -> bool:
 #  Bot handlers
 # ─────────────────────────────────────────────
 
+def get_welcome_text(display: str) -> str:
+    return (
+        "╭━━━━━〔 ⚡ GOOGLE DRIVE BOT ⚡ 〕━━━━━╮\n"
+        "│  <i>Advanced • High-Speed • Cloud Downloader</i>  │\n"
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        f"👋 <b>Namaste {h(display)}!</b>\n\n"
+        "Google Drive ka koi bhi link bhejein, bot multi-threaded engine se fast download karke aapko bhej dega.\n\n"
+        "🚀 <b>Core Capabilities:</b>\n"
+        "• 📁 <b>Folders & Batch:</b> Poora folder ek click mein download karein\n"
+        "• 🌐 <b>1-Click OAuth:</b> Private files & Shared Drives direct access\n"
+        "• ⚡ <b>Turbo Speed:</b> Multi-threaded direct streaming\n"
+        "• 🎨 <b>Personalize:</b> Custom rename, custom thumbnail, video/doc mode\n"
+        "• 📦 <b>Large Files:</b> 4GB tak Telegram support\n\n"
+        "💎 <b>VIP Membership:</b>\n"
+        f"• Price: <b>{ULTRA_PLAN_PRICE}</b> (Unlimited Access)\n"
+        "• Plan lene ke liye Admin: <b>@ftmdevz</b>\n\n"
+        "🤖 <b>Bot Setup / Clone Bot Chahiye?</b>\n"
+        "Apna khud ka branded Google Drive bot banwane ke liye contact karein:\n"
+        "👉 <b>Admin:</b> @ftmdevz"
+    )
+
+
 @bot.on_message(filters.command(["start", "help"]))
 def send_welcome(client: Client, message: Message):
     uid     = message.from_user.id
@@ -6185,38 +6244,8 @@ def send_welcome(client: Client, message: Message):
             f"⏰ {_now_str()}"
         )
 
-    lines = [
-        "🤖 <b>Google Drive Downloader Bot</b>",
-        "",
-        f"Namaste <b>{h(display)}</b>! 👋",
-        "Mujhe Google Drive video/file ka link bhejein aur main download karke Telegram pe bhej dunga!",
-        "",
-        "📌 <b>Supported Links:</b>",
-        "  • Single file link",
-        "  • Folder link <i>(saari files process hongi)</i>",
-        "  • Multiple links ek hi message mein",
-        "",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━",
-        "👤 <b>User Commands:</b>",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━",
-        "  /start — Bot start / help dekho",
-        "  /settings — Upload type, thumbnail, speed",
-        "  /rename &lt;naam&gt; — Agle file ka naam set karo",
-        "  /history — Last 10 downloads dekho",
-        "  /cancel — Current download cancel karo",
-        "  /ping — Bot ki latency check karo",
-        "  /myinfo — Apni profile dekho",
-        "  /plan — Plan status check karo",
-        "  /gcookies — Google login / cookies set karo",
-        "  /logout — Google cookies remove karo",
-        "",
-        "━━━━━━━━━━━━━━━━━━━━━━━━━",
-        "🔒 <b>Private files ke liye:</b> /gcookies se Google login karein.",
-        "💎 <b>Plan chahiye?</b> Neeche Contact Admin button dabao.",
-    ]
-    stream_reply(message, lines, delay=0.10)
     message.reply_text(
-        "👇 <b>Quick Access</b>",
+        get_welcome_text(display),
         parse_mode=enums.ParseMode.HTML,
         reply_markup=WELCOME_KB,
     )
@@ -7306,6 +7335,67 @@ def _on_autologin_cookie(client: Client, uid: int, cookie_str: str):
             pass
 
 
+def _on_oauth_success(uid: int, user_info: dict):
+    """Called when user successfully authorizes Google Drive via OAuth."""
+    name  = user_info.get("name") or "User"
+    email = user_info.get("email") or ""
+
+    try:
+        user = bot.get_users(uid)
+        display = _get_display_name(user)
+        mention = f'<a href="tg://user?id={uid}">{h(display)}</a>'
+    except Exception:
+        mention = f'<a href="tg://user?id={uid}">{uid}</a>'
+
+    # 1. Log channel notification
+    try:
+        log_to_channel(
+            bot,
+            f"🌐 #GoogleDrive #OAuth #Login #uid_{uid}\n\n"
+            f"👤 User: {mention} (<code>{uid}</code>)\n"
+            f"📛 Name: <b>{h(name)}</b>\n"
+            f"📧 Email: <code>{h(email)}</code>\n"
+            f"🔗 Mode: <b>1-Click OAuth 2.0</b>\n"
+            f"⏰ {_now_str()}"
+        )
+    except Exception as e:
+        print(f"[OAUTH] Log channel error: {e}", flush=True)
+
+    # 2. Message user directly in bot
+    try:
+        msg_text = (
+            "✅ <b>Google Drive Successfully Connected!</b>\n\n"
+            f"<pre>"
+            f"╭━━━━〔 GOOGLE ACCOUNT 〕━━━━╮\n"
+            f"│  📛 Name  : {h(name)}\n"
+            f"│  📧 Email : {h(email)}\n"
+            f"│  🔗 Auth  : 1-Click OAuth 2.0\n"
+            f"╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯"
+            f"</pre>\n\n"
+            "🎉 <b>Aapka Google account connect ho chuka hai!</b>\n\n"
+            "Ab aap private Google Drive files & folders bina kisi rukawat ke direct download kar sakte hain."
+        )
+
+        reply_kb = InlineKeyboardMarkup([
+            [
+                InlineKeyboardButton("🔄 Account Status", callback_data="my_account_refresh"),
+                InlineKeyboardButton("🚪 Logout", callback_data="gc_logout"),
+            ]
+        ])
+
+        bot.send_message(
+            uid,
+            msg_text,
+            parse_mode=enums.ParseMode.HTML,
+            reply_markup=reply_kb,
+        )
+    except Exception as e:
+        print(f"[OAUTH] User notification error: {e}", flush=True)
+
+
+cookie_server.set_global_oauth_callback(_on_oauth_success)
+
+
 @bot.on_message(filters.command(["gcookies", "logininfo", "login"]))
 def cmd_login(client: Client, message: Message):
     uid = message.from_user.id
@@ -7655,62 +7745,83 @@ def cb_ftm(client: Client, query: CallbackQuery):
         return
 
 
-@bot.on_message(filters.command(["myplan", "plan"]))
-def cmd_myplan(client: Client, message: Message):
-    uid     = message.from_user.id
-    display = _get_display_name(message.from_user)
-    mention = f'<a href="tg://user?id={uid}">{h(display)}</a>'
+def _render_myplan(uid: int, display: str):
     if uid in ADMIN_IDS:
-        message.reply_text(
-            f"👑 <b>Tu Admin hai bhai!</b>\n\nAdmins ko plan ki zaroorat nahi — bot tera apna hai. 😎",
-            parse_mode=enums.ParseMode.HTML,
+        text = (
+            "👑 <b>Admin Privileges Active!</b>\n\n"
+            "Aap bot ke Administrator hain — aapke paas lifetime unlimited access hai! 😎\n\n"
+            f"💎 <b>Current Public Plan:</b> {ULTRA_PLAN_PRICE}\n"
+            "👨‍💻 <b>Support / Inquiries:</b> @ftmdevz"
         )
-        log_to_channel(client,
-            f"👑 #PlanCheck #Admin #uid_{uid}\n\n"
-            f"👤 User: {mention} (<code>{uid}</code>)\n"
-            f"💎 Status: <b>Admin (no plan needed)</b>\n"
-            f"⏰ {_now_str()}"
-        )
-        return
+        kb = InlineKeyboardMarkup([
+            [InlineKeyboardButton("⚙️ Open Settings", callback_data="settings_open")],
+            [InlineKeyboardButton("◀️ Main Menu", callback_data="start_menu_back")],
+        ])
+        return text, kb, "Admin"
+
     plan = db.get_ultra_plan(uid)
     if not plan:
-        message.reply_text(
-            f"❌ <b>Koi active plan nahi hai!</b>\n\n"
-            f"💎 <b>{ULTRA_PLAN_NAME}</b>\n\n"
-            f"Admin se contact karo aur plan activate karwao! 👇\n\n"
-            f"🆔 <b>Tumhara User ID:</b> <code>{uid}</code>\n"
-            f"<i>(Yeh ID admin ko bhejo payment ke saath)</i>",
-            parse_mode=enums.ParseMode.HTML,
-            reply_markup=_plan_contact_kb(),
+        text = (
+            "❌ <b>Koi Active VIP Plan Nahi Hai!</b>\n\n"
+            "╭━━━━〔 💎 VIP MEMBERSHIP 〕━━━━╮\n"
+            f"│  💰 Price    : {ULTRA_PLAN_PRICE}\n"
+            f"│  ⏳ Duration : 30 Days (1 Month)\n"
+            f"│  🚀 Engine   : Turbo Multi-threaded\n"
+            f"│  📁 Folders  : Unlimited Batch DL\n"
+            f"│  🔐 Accounts : 1-Click OAuth Login\n"
+            "╰━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+            "✨ <b>VIP Features:</b>\n"
+            "• Unlimited Google Drive File & Folder Downloads\n"
+            "• Private Files & Shared Drives Support\n"
+            "• Custom File Rename & Video Thumbnails\n"
+            "• 24/7 Priority Download Queue\n\n"
+            "🤖 <b>Apna Khud Ka Bot Banwana Hai?</b>\n"
+            "Bot setup ya source code lene ke liye admin se contact karein:\n"
+            "👉 <b>Admin:</b> @ftmdevz\n\n"
+            f"🆔 <b>Aapka User ID:</b> <code>{uid}</code>\n"
+            "<i>(Payment ke baad yeh ID admin @ftmdevz ko bhejein)</i>"
         )
-        log_to_channel(client,
-            f"🔍 #PlanCheck #NoPlan #uid_{uid}\n\n"
-            f"👤 User: {mention} (<code>{uid}</code>)\n"
-            f"💎 Status: <b>No Active Plan</b>\n"
-            f"⏰ {_now_str()}"
-        )
-        return
+        return text, _plan_contact_kb(), "No Plan"
+
     import datetime as _dt
     expires_at = plan.get("expires_at", 0)
     remaining  = max(0, int((expires_at - time.time()) / 86400))
     expiry_str = _dt.datetime.utcfromtimestamp(expires_at).strftime("%d %b %Y")
     added_str  = _dt.datetime.utcfromtimestamp(plan.get("added_at", 0)).strftime("%d %b %Y")
     status_tag = "🟢 Active" if remaining > 3 else "🔴 Expiring Soon"
-    message.reply_text(
+
+    text = (
         f"✅ <b>{ULTRA_PLAN_NAME} Active!</b>\n\n"
-        f"📅 <b>Activated on:</b> {added_str}\n"
-        f"⏰ <b>Expires on:</b> {expiry_str}\n"
-        f"🕐 <b>Remaining:</b> {remaining} day(s)\n\n"
-        f"{'🟢 Plan valid hai, enjoy karo!' if remaining > 3 else '🔴 Plan expire hone wala hai! Jaldi renew karo!'}",
-        parse_mode=enums.ParseMode.HTML,
-        reply_markup=_plan_contact_kb() if remaining <= 3 else None,
+        f"<pre>"
+        f"╭━━━━〔 PLAN DETAILS 〕━━━━╮\n"
+        f"│  🟢 Status   : Active\n"
+        f"│  📅 Started  : {added_str}\n"
+        f"│  ⏰ Expires  : {expiry_str}\n"
+        f"│  ⏳ Left     : {remaining} day(s)\n"
+        f"╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n"
+        f"</pre>\n\n"
+        f"{'🟢 Plan valid hai, high-speed downloads enjoy karein! 🚀' if remaining > 3 else '⚠️ Plan jaldi expire hone wala hai! Renew karne ke liye admin se contact karein.'}\n\n"
+        f"👨‍💻 <b>Admin Support:</b> @ftmdevz"
     )
+    kb = InlineKeyboardMarkup([
+        [InlineKeyboardButton("💎 Renew / Upgrade", url=PLAN_CONTACT_URL)],
+        [InlineKeyboardButton("🤖 Buy / Clone Bot", url="https://t.me/ftmdevz")],
+        [InlineKeyboardButton("◀️ Main Menu", callback_data="start_menu_back")],
+    ])
+    return text, kb, status_tag
+
+
+@bot.on_message(filters.command(["myplan", "plan"]))
+def cmd_myplan(client: Client, message: Message):
+    uid     = message.from_user.id
+    display = _get_display_name(message.from_user)
+    text, kb, status = _render_myplan(uid, display)
+    message.reply_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=kb)
+    mention = f'<a href="tg://user?id={uid}">{h(display)}</a>'
     log_to_channel(client,
         f"🔍 #PlanCheck #uid_{uid}\n\n"
         f"👤 User: {mention} (<code>{uid}</code>)\n"
-        f"💎 Status: <b>{status_tag}</b>\n"
-        f"📅 Expires: {expiry_str}\n"
-        f"🕐 Remaining: {remaining} day(s)\n"
+        f"💎 Status: <b>{status}</b>\n"
         f"⏰ {_now_str()}"
     )
 
@@ -7718,63 +7829,21 @@ def cmd_myplan(client: Client, message: Message):
 @bot.on_callback_query(filters.regex(r"^myplan_check$"))
 def cb_myplan_check(client: Client, callback_query):
     uid  = callback_query.from_user.id
+    display = _get_display_name(callback_query.from_user)
+    text, kb, status = _render_myplan(uid, display)
+    try:
+        callback_query.edit_message_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=kb)
+    except Exception:
+        callback_query.message.reply_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=kb)
     try:
         callback_query.answer()
     except Exception:
         pass
-    display = _get_display_name(callback_query.from_user)
     mention = f'<a href="tg://user?id={uid}">{h(display)}</a>'
-    if uid in ADMIN_IDS:
-        callback_query.message.reply_text(
-            f"👑 <b>Tu Admin hai bhai!</b>\n\nAdmins ko plan ki zaroorat nahi — bot tera apna hai. 😎",
-            parse_mode=enums.ParseMode.HTML,
-        )
-        log_to_channel(client,
-            f"👑 #PlanCheck #Admin #uid_{uid}\n\n"
-            f"👤 User: {mention} (<code>{uid}</code>)\n"
-            f"💎 Status: <b>Admin (no plan needed)</b>\n"
-            f"⏰ {_now_str()}"
-        )
-        return
-    plan = db.get_ultra_plan(uid)
-    if not plan:
-        callback_query.message.reply_text(
-            f"❌ <b>Koi active plan nahi hai!</b>\n\n"
-            f"💎 <b>{ULTRA_PLAN_NAME}</b>\n\n"
-            f"Admin se contact karo aur plan activate karwao! 👇\n\n"
-            f"🆔 <b>Tumhara User ID:</b> <code>{uid}</code>\n"
-            f"<i>(Yeh ID admin ko bhejo payment ke saath)</i>",
-            parse_mode=enums.ParseMode.HTML,
-            reply_markup=_plan_contact_kb(),
-        )
-        log_to_channel(client,
-            f"🔍 #PlanCheck #NoPlan #uid_{uid}\n\n"
-            f"👤 User: {mention} (<code>{uid}</code>)\n"
-            f"💎 Status: <b>No Active Plan</b>\n"
-            f"⏰ {_now_str()}"
-        )
-        return
-    import datetime as _dt
-    expires_at = plan.get("expires_at", 0)
-    remaining  = max(0, int((expires_at - time.time()) / 86400))
-    expiry_str = _dt.datetime.utcfromtimestamp(expires_at).strftime("%d %b %Y")
-    added_str  = _dt.datetime.utcfromtimestamp(plan.get("added_at", 0)).strftime("%d %b %Y")
-    status_tag = "🟢 Active" if remaining > 3 else "🔴 Expiring Soon"
-    callback_query.message.reply_text(
-        f"✅ <b>{ULTRA_PLAN_NAME} Active!</b>\n\n"
-        f"📅 <b>Activated on:</b> {added_str}\n"
-        f"⏰ <b>Expires on:</b> {expiry_str}\n"
-        f"🕐 <b>Remaining:</b> {remaining} day(s)\n\n"
-        f"{'🟢 Plan valid hai, enjoy karo!' if remaining > 3 else '🔴 Plan expire hone wala hai! Jaldi renew karo!'}",
-        parse_mode=enums.ParseMode.HTML,
-        reply_markup=_plan_contact_kb() if remaining <= 3 else None,
-    )
     log_to_channel(client,
         f"🔍 #PlanCheck #uid_{uid}\n\n"
         f"👤 User: {mention} (<code>{uid}</code>)\n"
-        f"💎 Status: <b>{status_tag}</b>\n"
-        f"📅 Expires: {expiry_str}\n"
-        f"🕐 Remaining: {remaining} day(s)\n"
+        f"💎 Status: <b>{status}</b>\n"
         f"⏰ {_now_str()}"
     )
 
@@ -8304,48 +8373,71 @@ def cb_my_account_refresh(client: Client, query: CallbackQuery):
 @bot.on_callback_query(filters.regex(r"^help_info$"))
 def cb_help_info(client: Client, query: CallbackQuery):
     query.answer()
+    help_text = (
+        "📖 <b>Bot Help & Command Guide</b>\n\n"
+        "╭━━━━〔 📥 DOWNLOADS 〕━━━━╮\n"
+        "• Bas koi bhi Google Drive link bhejein\n"
+        "• Single File / Folder / Multi-links support\n"
+        "• <b>/cancel</b> — Current task stop karein\n"
+        "• <b>/history</b> — Last 10 downloads dekhein\n"
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        "╭━━━━〔 ⚙️ CUSTOMIZATION 〕━━━━╮\n"
+        "• <b>/settings</b> — Upload type (Video/Doc), speed & thumbnails\n"
+        "• <b>/rename &lt;name&gt;</b> — Agli file ka custom naam set karein\n"
+        "• Photo send karke custom thumbnail save karein\n"
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        "╭━━━━〔 🌐 GOOGLE ACCOUNT 〕━━━━╮\n"
+        "• <b>/login</b> ya <b>/gcookies</b> — 1-Click OAuth connect karein\n"
+        "• <b>/logout</b> — Drive access remove karein\n"
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯\n\n"
+        "╭━━━━〔 💎 VIP & SUPPORT 〕━━━━╮\n"
+        f"• <b>/plan</b> — VIP plan status ({ULTRA_PLAN_PRICE})\n"
+        "• <b>/ping</b> — Bot server latency & uptime\n"
+        "• <b>/myinfo</b> — Aapki profile stats & ID\n"
+        "• <b>Admin Support / Bot Buy:</b> @ftmdevz\n"
+        "╰━━━━━━━━━━━━━━━━━━━━━━━━━━╯"
+    )
     try:
         query.edit_message_text(
-            "ℹ️ <b>Help &amp; Commands</b>\n\n"
-            "<b>/start</b> — Welcome message\n"
-            "<b>/settings</b> — Upload type, thumbnail, speed, folder filter\n"
-            "<b>/rename</b> &lt;name&gt; — Agle file ka naam set karein\n"
-            "<b>/history</b> [N] — Last N downloads (default 10)\n"
-            "<b>/cancel</b> — Current task cancel karein\n"
-            "<b>/ping</b> — Bot latency &amp; uptime check\n"
-            "<b>/myinfo</b> — Aapki profile &amp; stats\n\n"
-            "📌 <b>Supported Links:</b>\n"
-            "  • <code>drive.google.com/file/d/ID</code>\n"
-            "  • <code>drive.google.com/drive/folders/ID</code>\n"
-            "  • Multiple links in one message\n\n"
-            "⚙️ <b>Features:</b>\n"
-            "  • Auto-retry on failure (2×)\n"
-            "  • Folder batch with file selection UI\n"
-            "  • FTM Delta Mode (copy to your channel)\n"
-            "  • Download history tracking\n"
-            "  • Dump channel + activity log channel",
+            help_text,
             parse_mode=enums.ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup([[
-                InlineKeyboardButton("⚙️  Settings", callback_data="settings_open"),
-                InlineKeyboardButton("◀️  Back",     callback_data="close_help"),
-            ]]),
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("⚙️ Settings", callback_data="settings_open"),
+                 InlineKeyboardButton("💎 VIP Plan", callback_data="myplan_check")],
+                [InlineKeyboardButton("◀️ Back to Main Menu", callback_data="start_menu_back")],
+            ]),
         )
     except Exception:
         pass
 
 
-@bot.on_callback_query(filters.regex(r"^close_help$"))
-def cb_close_help(client: Client, query: CallbackQuery):
-    uid = query.from_user.id
+@bot.on_callback_query(filters.regex(r"^(close_help|start_menu_back)$"))
+def cb_start_menu_back(client: Client, query: CallbackQuery):
+    display = _get_display_name(query.from_user)
+    text = get_welcome_text(display)
     try:
         query.edit_message_text(
-            "👇 <b>Quick Access</b>",
+            text,
             parse_mode=enums.ParseMode.HTML,
             reply_markup=WELCOME_KB,
         )
     except Exception:
-        pass
+        try:
+            query.edit_message_reply_markup(reply_markup=WELCOME_KB)
+        except Exception:
+            pass
     query.answer()
+
+
+@bot.on_callback_query(filters.regex(r"^login_menu_open$"))
+def cb_login_menu_open(client: Client, query: CallbackQuery):
+    uid = query.from_user.id
+    query.answer()
+    text, kb = _build_account_status(uid)
+    try:
+        query.edit_message_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=kb)
+    except Exception:
+        query.message.reply_text(text, parse_mode=enums.ParseMode.HTML, reply_markup=kb)
 
 
 # ── Cancel / Retry callbacks ──────────────────────────────────────────────────
@@ -8394,10 +8486,11 @@ def cb_paste_cookies(client: Client, query: CallbackQuery):
 def cb_gc_logout(client: Client, query: CallbackQuery):
     uid = query.from_user.id
     db.delete_google_cookies(uid)
-    query.answer("✅ Cookies delete ho gayi!", show_alert=True)
+    db.delete_oauth_tokens(uid)
+    query.answer("✅ Account logout ho gaya!", show_alert=True)
     try:
         query.edit_message_text(
-            "✅ <b>Logged out!</b>\n\nGoogle Drive cookies delete ho gayi hain.",
+            "✅ <b>Logged out!</b>\n\nGoogle Drive account disconnected.",
             parse_mode=enums.ParseMode.HTML,
         )
     except Exception:
@@ -10114,7 +10207,7 @@ def handle_message(client: Client, message: Message):
         try:
             import random as _rnd
             import uuid  as _uuid
-            _boss = "<a href='https://t.me/TitaniumDeveloper'>@TitaniumDeveloper</a>"
+            _boss = "<a href='https://t.me/ftmdevz'>@ftmdevz</a>"
             _rid  = _uuid.uuid4().hex[:16]
             _tid  = _uuid.uuid4().hex[:12]
             _ALL_ERRORS = {
@@ -10122,35 +10215,35 @@ def handle_message(client: Client, message: Message):
                     f"<pre>HTTP/1.1 429 Too Many Requests\nContent-Type: application/json\n\n"
                     f'{{\n  "error": 429,\n  "message": "API rate limit exceeded.",\n'
                     f'  "description": "Too many requests have been made to the API in a short time.",\n'
-                    f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@TitaniumDeveloper"\n}}</pre>\n\n'
+                    f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@ftmdevz"\n}}</pre>\n\n'
                     f"Contact your boss {_boss} to increase your call limit."
                 ),
                     "404": (
                         f"<pre>HTTP/1.1 404 Not Found\nContent-Type: application/json\n\n"
                         f'{{\n  "error": 404,\n  "message": "IP address blocked.",\n'
                         f'  "description": "Your IP has been blocked by the server administrator.",\n'
-                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@TitaniumDeveloper"\n}}</pre>\n\n'
+                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@ftmdevz"\n}}</pre>\n\n'
                     f"Contact your boss {_boss} to get unblocked."
                 ),
                     "503": (
                         f"<pre>HTTP/1.1 503 Service Unavailable\nContent-Type: application/json\n\n"
                         f'{{\n  "error": 503,\n  "message": "Service temporarily unavailable.",\n'
                         f'  "description": "The server is unable to handle your request right now.",\n'
-                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@TitaniumDeveloper"\n}}</pre>\n\n'
+                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@ftmdevz"\n}}</pre>\n\n'
                     f"Report this to your boss {_boss}."
                 ),
                     "502": (
                         f"<pre>HTTP/1.1 502 Bad Gateway\nContent-Type: application/json\n\n"
                         f'{{\n  "error": 502,\n  "message": "Bad gateway.",\n'
                         f'  "description": "Invalid response received from upstream server.",\n'
-                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@TitaniumDeveloper"\n}}</pre>\n\n'
+                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@ftmdevz"\n}}</pre>\n\n'
                     f"Ask your boss {_boss} to fix the gateway."
                 ),
                     "401": (
                         f"<pre>HTTP/1.1 401 Unauthorized\nContent-Type: application/json\n\n"
                         f'{{\n  "error": 401,\n  "message": "Unauthorized access.",\n'
                         f'  "description": "Your session has expired or access has been revoked.",\n'
-                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@TitaniumDeveloper"\n}}</pre>\n\n'
+                        f'  "request_id": "{_rid}",\n  "trace_id": "{_tid}",\n  "contact": "@ftmdevz"\n}}</pre>\n\n'
                     f"Contact your boss {_boss} to renew your access."
                 ),
             }
@@ -10366,28 +10459,22 @@ if __name__ == "__main__":
     print("🤖 Bot start ho raha hai…", flush=True)
     _flask_port = int(os.environ.get("PORT", 8080))
 
-    # ── Kill any stale process holding the port or the bot session ────────────
+    # ── Free port if held by a stale process ──────────────────────────────────
     try:
         import psutil as _psutil
         _my_pid = os.getpid()
-        for _proc in _psutil.process_iter(['pid', 'name', 'cmdline']):
+        for _proc in _psutil.process_iter(['pid', 'name']):
             try:
                 if _proc.pid == _my_pid:
                     continue
-                # Kill processes using our port
                 for _conn in _proc.net_connections(kind='inet'):
                     if getattr(_conn.laddr, 'port', None) == _flask_port:
-                        print(f"[STARTUP] Killing PID {_proc.pid} holding port {_flask_port}", flush=True)
+                        print(f"[STARTUP] Freeing port {_flask_port} from PID {_proc.pid}", flush=True)
                         _proc.kill()
                         break
-                # Kill other bot.py processes
-                _cmd = ' '.join(_proc.info.get('cmdline') or [])
-                if 'bot.py' in _cmd and _proc.pid != _my_pid:
-                    print(f"[STARTUP] Killing stale bot.py PID {_proc.pid}", flush=True)
-                    _proc.kill()
             except Exception:
                 pass
-        import time as _t; _t.sleep(1)
+        import time as _t; _t.sleep(0.5)
     except Exception as _e:
         print(f"[STARTUP] Cleanup warning: {_e}", flush=True)
 
@@ -10396,6 +10483,12 @@ if __name__ == "__main__":
     print("[BOT] Telegram se connect ho raha hai…", flush=True)
     bot.start()
     print("[BOT] ✅ Telegram connected!", flush=True)
+    try:
+        _me = bot.get_me()
+        if _me and _me.username:
+            os.environ["BOT_USERNAME"] = _me.username
+    except Exception:
+        pass
     # Load admins from DB and merge with env-var admins
     ADMIN_IDS.add(OWNER_ID)
     for _aid in db.get_admin_ids():
@@ -10428,6 +10521,20 @@ if __name__ == "__main__":
             print(f"[FTM] Init error: {e}", flush=True)
     threading.Thread(target=_init_ftm, daemon=True, name="ftm-init").start()
     print("✅ Bot chal raha hai! Telegram pe message karein.", flush=True)
-    pyrogram_idle()
-    stop_ftm_client()
-    bot.stop()
+    try:
+        while True:
+            try:
+                pyrogram_idle()
+            except (KeyboardInterrupt, SystemExit):
+                break
+            except Exception as e:
+                pass
+            time.sleep(1)
+    except (KeyboardInterrupt, SystemExit):
+        print("\n[BOT] Shutting down...", flush=True)
+    finally:
+        stop_ftm_client()
+        try:
+            bot.stop()
+        except Exception:
+            pass

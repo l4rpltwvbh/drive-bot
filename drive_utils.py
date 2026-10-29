@@ -1,4 +1,11 @@
 import os
+import sys
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8")
+        sys.stderr.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
 import re
 import json
 import time
@@ -237,13 +244,59 @@ def _gdrive_scan_folder_recursive(folder_id: str, auth_headers: dict,
     return node
 
 
-# ── HTML scraping fallback ────────────────────────────────────────────────────
+# ── HTML scraping / embeddedfolderview ───────────────────────────────────────
 
 def _fetch_html_entries(folder_id: str, cookies: dict) -> tuple:
     """
-    Scrape Google Drive folder page to extract entries.
-    Returns (entries, folder_name).
+    Extract Google Drive folder entries using authenticated embeddedfolderview / scrape.
+    Returns (entries, folder_name) where each entry is [id, "", name, mime].
     """
+    folder_name = ""
+    # 1. embeddedfolderview (fastest and cleanest for authenticated cookies & public folders)
+    try:
+        url = f"https://drive.google.com/embeddedfolderview?id={folder_id}"
+        resp = requests.get(
+            url,
+            cookies=cookies,
+            headers={
+                "User-Agent": _SCRAPE_UA,
+                "Accept-Language": "en-US,en;q=0.9",
+            },
+            timeout=25,
+            allow_redirects=True,
+        )
+        if resp.status_code == 200 and "accounts.google.com" not in resp.url:
+            import bs4
+            soup = bs4.BeautifulSoup(resp.text, "html.parser")
+            if soup.title and soup.title.string:
+                folder_name = re.sub(r"\s*[-–—]\s*Google Drive\s*$", "", soup.title.string).strip()
+
+            entries = []
+            seen = set()
+            for a in soup.find_all("a"):
+                href = a.get("href", "")
+                fm = re.search(r"/file/d/([-\w]{25,})", href)
+                if fm:
+                    fid = fm.group(1)
+                    if fid not in seen:
+                        seen.add(fid)
+                        fname = a.get_text(strip=True) or a.get("title", "") or fid
+                        entries.append([fid, "", fname, "application/octet-stream"])
+                sm = re.search(r"/(?:drive/)?folders/([-\w]{25,})", href)
+                if sm:
+                    sid = sm.group(1)
+                    if sid != folder_id and sid not in seen:
+                        seen.add(sid)
+                        sname = a.get_text(strip=True) or a.get("title", "") or sid
+                        entries.append([sid, "", sname, _FOLDER_MIME])
+
+            if entries:
+                print(f"[HTML] embeddedfolderview extracted {len(entries)} item(s) for {folder_id} ({folder_name!r})")
+                return entries, folder_name
+    except Exception as e:
+        print(f"[HTML] embeddedfolderview error for {folder_id}: {e}")
+
+    # 2. Direct folder page scrape fallback
     try:
         resp = requests.get(
             f"https://drive.google.com/drive/folders/{folder_id}",
@@ -252,40 +305,29 @@ def _fetch_html_entries(folder_id: str, cookies: dict) -> tuple:
             timeout=30,
             allow_redirects=True,
         )
+        if resp.status_code == 200 and "accounts.google.com" not in resp.url:
+            _tm = re.search(r"<title>([^<]+)</title>", resp.text)
+            if _tm and not folder_name:
+                folder_name = re.sub(r"\s*[-–—]\s*Google Drive\s*$", "", _tm.group(1)).strip()
+
+            m = re.search(r"window\['_DRIVE_ivd'\]\s*=\s*'(.*?)'\s*;", resp.text, re.DOTALL)
+            if m:
+                decoded = m.group(1).encode("utf-8").decode("unicode_escape")
+                outer = json.loads(decoded)
+                entries = []
+                for item in outer:
+                    if not isinstance(item, list):
+                        continue
+                    if item and isinstance(item[0], list):
+                        entries.extend(item)
+                    elif item and isinstance(item[0], str) and len(item) >= 4:
+                        entries.append(item)
+                if entries:
+                    return entries, folder_name
     except Exception as e:
-        print(f"[HTML] fetch error {folder_id}: {e}")
-        return [], ""
+        print(f"[HTML] direct scrape error {folder_id}: {e}")
 
-    if resp.status_code != 200 or "accounts.google.com" in resp.url:
-        print(f"[HTML] {folder_id} status={resp.status_code} url={resp.url[:80]}")
-        return [], ""
-
-    folder_name = ""
-    _tm = re.search(r"<title>([^<]+)</title>", resp.text)
-    if _tm:
-        folder_name = re.sub(r"\s*[-–—]\s*Google Drive\s*$", "", _tm.group(1)).strip()
-
-    m = re.search(r"window\['_DRIVE_ivd'\]\s*=\s*'(.*?)'\s*;", resp.text, re.DOTALL)
-    if not m:
-        print(f"[HTML] _DRIVE_ivd not found for {folder_id}")
-        return [], folder_name
-
-    try:
-        decoded = m.group(1).encode("utf-8").decode("unicode_escape")
-        outer   = json.loads(decoded)
-    except Exception as e:
-        print(f"[HTML] JSON parse error for {folder_id}: {e}")
-        return [], folder_name
-
-    entries = []
-    for item in outer:
-        if not isinstance(item, list):
-            continue
-        if item and isinstance(item[0], list):
-            entries.extend(item)
-        elif item and isinstance(item[0], str) and len(item) >= 4:
-            entries.append(item)
-    return entries, folder_name
+    return [], folder_name
 
 
 def _html_build_tree(folder_id: str, cookies: dict,
@@ -468,7 +510,18 @@ def build_folder_tree(folder_id: str,
     if cookies:
         cookie_dict = cookies if isinstance(cookies, dict) else parse_cookie_str(cookies)
 
-    # ── 1. OAuth access_token ─────────────────────────────────────────────────
+    # ── 1. Cookies (embeddedfolderview / scrape) ──────────────────────────────
+    if cookie_dict:
+        print(f"[GDRIVE] Cookie scan (embeddedfolderview): {folder_id}")
+        try:
+            tree = _html_build_tree(folder_id, cookie_dict, name=name)
+            if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
+                print(f"[GDRIVE] Cookie scan: {tree['total_files']} file(s) [OK]")
+                return tree
+        except Exception as e:
+            print(f"[GDRIVE] Cookie scan failed: {e}")
+
+    # ── 2. OAuth access_token (if available) ──────────────────────────────────
     token = access_token
     if token:
         print(f"[GDRIVE] OAuth token scan: {folder_id}")
@@ -477,7 +530,7 @@ def build_folder_tree(folder_id: str,
                 folder_id, {"Authorization": f"Bearer {token}"}, name=name
             )
             if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
-                print(f"[GDRIVE] OAuth: {tree['total_files']} file(s) ✓")
+                print(f"[GDRIVE] OAuth: {tree['total_files']} file(s) [OK]")
                 return tree
         except Exception as e:
             print(f"[GDRIVE] OAuth scan failed, trying refresh: {e}")
@@ -493,25 +546,10 @@ def build_folder_tree(folder_id: str,
                         name=name,
                     )
                     if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
-                        print(f"[GDRIVE] Refreshed token: {tree['total_files']} file(s) ✓")
+                        print(f"[GDRIVE] Refreshed token: {tree['total_files']} file(s) [OK]")
                         return tree
                 except Exception as e:
                     print(f"[GDRIVE] Refreshed token scan also failed: {e}")
-
-    # ── 2. Cookies → SAPISIDHASH auth ─────────────────────────────────────────
-    if cookie_dict:
-        auth_hdrs = _auth_headers_from_cookies(cookie_dict)
-        if auth_hdrs:
-            print(f"[GDRIVE] SAPISIDHASH scan: {folder_id}")
-            try:
-                tree = _gdrive_scan_folder_recursive(
-                    folder_id, auth_hdrs, name=name
-                )
-                if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
-                    print(f"[GDRIVE] SAPISIDHASH: {tree['total_files']} file(s) ✓")
-                    return tree
-            except Exception as e:
-                print(f"[GDRIVE] SAPISIDHASH scan failed: {e}")
 
     # ── 3. API key (public folders) ───────────────────────────────────────────
     if _api_key and not cookie_dict:
@@ -521,21 +559,10 @@ def build_folder_tree(folder_id: str,
                 folder_id, {}, api_key=_api_key, name=name
             )
             if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
-                print(f"[GDRIVE] API key: {tree['total_files']} file(s) ✓")
+                print(f"[GDRIVE] API key: {tree['total_files']} file(s) [OK]")
                 return tree
         except Exception as e:
             print(f"[GDRIVE] API key scan failed: {e}")
-
-    # ── 4. HTML scraping (cookies) ────────────────────────────────────────────
-    if cookie_dict:
-        print(f"[GDRIVE] HTML scrape fallback: {folder_id}")
-        try:
-            tree = _html_build_tree(folder_id, cookie_dict, name=name)
-            if tree.get("total_files") or tree.get("files") or tree.get("subfolders"):
-                print(f"[GDRIVE] HTML scrape: {tree['total_files']} file(s) ✓")
-                return tree
-        except Exception as e:
-            print(f"[GDRIVE] HTML scrape failed: {e}")
 
     # ── 5. gdown (public) ─────────────────────────────────────────────────────
     if not cookie_dict:

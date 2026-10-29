@@ -26,6 +26,8 @@ import requests as _requests
 
 # ── Chromium path for Playwright fallback ────────────────────────────────────
 _chromium_candidates = [
+    r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+    r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
     "/nix/store/qa9cnw4v5xkxyip6mb9kxqfq1z4x2dx1-chromium-138.0.7204.100/bin/chromium",
     "/home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell",
     "/home/runner/workspace/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome",
@@ -74,14 +76,123 @@ def _mime_from_url(url: str) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Method 1: get_video_info API  (fast, no browser needed)
+# Method 1: Workspace Playback API (Modern Drive API, fast, supports view-only)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _get_streams_via_workspace_api(file_id: str, cookie_hdr: str) -> tuple:
+    """
+    Directly query Google Workspace video playback API with SAPISIDHASH.
+    Works for all Google Drive videos, including view-only / download-disabled videos.
+    Returns (video_url, audio_url, title).
+    """
+    import hashlib
+    cookies = {}
+    if isinstance(cookie_hdr, dict):
+        cookies = dict(cookie_hdr)
+        cookie_hdr = "; ".join(f"{k}={v}" for k, v in cookies.items())
+    elif isinstance(cookie_hdr, str):
+        c_str_clean = cookie_hdr.strip()
+        if c_str_clean.startswith("{") or c_str_clean.startswith("["):
+            try:
+                parsed = json.loads(c_str_clean)
+                arr = parsed.get("cookies", []) if isinstance(parsed, dict) else parsed
+                for item in arr:
+                    if isinstance(item, dict) and item.get("name"):
+                        cookies[item["name"]] = item.get("value", "")
+                cookie_hdr = "; ".join(f"{k}={v}" for k, v in cookies.items())
+            except Exception:
+                pass
+        if not cookies:
+            for part in cookie_hdr.split(";"):
+                if "=" in part:
+                    k, v = part.split("=", 1)
+                    cookies[k.strip()] = v.strip()
+
+    sapisid = cookies.get("SAPISID") or cookies.get("__Secure-1PAPISID") or ""
+    origin = "https://drive.google.com"
+    ts = int(time.time())
+    sha1 = hashlib.sha1(f"{ts} {sapisid} {origin}".encode()).hexdigest()
+    auth_hdr = f"SAPISIDHASH {ts}_{sha1}"
+
+    url = (
+        f"https://workspacevideo-pa.clients6.google.com/v1/drive/media/{file_id}/playback"
+        "?auditContext=forDisplay&key=AIzaSyDVQw45DwoYh632gvsP5vPDqEKvb-Ywnb8"
+    )
+    hdrs = {
+        "User-Agent": _UA,
+        "Origin": origin,
+        "Referer": f"https://drive.google.com/file/d/{file_id}/view",
+        "Cookie": cookie_hdr,
+        "Authorization": auth_hdr,
+        "X-Goog-AuthUser": "0",
+    }
+    resp = _requests.get(url, headers=hdrs, timeout=20)
+    resp.raise_for_status()
+    data = resp.json()
+
+    sb = data.get("mediaStreamingData", {}).get("serializedHouseBrandPlayerResponse", "")
+    if not sb:
+        raise RuntimeError("No streaming data in workspace playback response")
+
+    pr = json.loads(sb)
+    streaming_data = pr.get("streamingData", {})
+    formats = streaming_data.get("formats", [])
+    adaptive = streaming_data.get("adaptiveFormats", [])
+
+    video_url = None
+    audio_url = None
+    title = pr.get("videoDetails", {}).get("title")
+
+    # Muxed formats (already have audio + video merged) - sort by height descending (e.g. 720p > 360p)
+    muxed = [f for f in formats if f.get("url")]
+    muxed.sort(key=lambda x: int(x.get("height", 0)), reverse=True)
+    if muxed:
+        video_url = muxed[0]["url"]
+
+    # If adaptive is needed or if no muxed
+    if not video_url:
+        v_candidates = []
+        a_candidates = []
+        for fmt in adaptive:
+            u = fmt.get("url", "")
+            mime = fmt.get("mimeType", "")
+            itag = fmt.get("itag", 0)
+            if not u:
+                continue
+            if mime.startswith("video/"):
+                rank = VIDEO_ITAGS.index(itag) if itag in VIDEO_ITAGS else 999
+                v_candidates.append((rank, u))
+            elif mime.startswith("audio/"):
+                rank = AUDIO_ITAGS.index(itag) if itag in AUDIO_ITAGS else 999
+                a_candidates.append((rank, u))
+
+        v_candidates.sort(key=lambda x: x[0])
+        a_candidates.sort(key=lambda x: x[0])
+        if v_candidates:
+            video_url = v_candidates[0][1]
+        if a_candidates:
+            audio_url = a_candidates[0][1]
+
+    if not video_url:
+        raise RuntimeError("No stream URL found in workspace streamingData")
+
+    return video_url, audio_url, title
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Legacy get_video_info API fallback
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _get_streams_via_api(file_id: str, cookie_hdr: str) -> tuple:
     """
-    Returns (video_url, audio_url) or raises on failure.
-    Picks best quality from adaptiveFormats; falls back to muxed fmt_stream_map.
+    Returns (video_url, audio_url, title) or raises on failure.
+    Tries modern workspacevideo-pa API first, then falls back to legacy get_video_info.
     """
+    try:
+        return _get_streams_via_workspace_api(file_id, cookie_hdr)
+    except Exception as w_err:
+        pass
+
     hdrs = {"User-Agent": _UA, "Cookie": cookie_hdr,
             "Referer": "https://drive.google.com/"}
 
@@ -361,7 +472,8 @@ def capture_drive_video_streams(
         result.audio_url = a_url
         result.method    = "api"
         result.title     = api_title
-        _cb(f"✅ API se streams mile! (video={'✅' if v_url else '❌'} audio={'✅' if a_url else '❌'})")
+        _aud_label = "✅ (Separate)" if a_url else "✅ (Inbuilt MP4)"
+        _cb(f"✅ API se streams mile! (video=✅ audio={_aud_label})")
         return result
     except Exception as api_err:
         _cb(f"⚠️ API fail hua ({api_err}), Playwright try ho raha hai…")

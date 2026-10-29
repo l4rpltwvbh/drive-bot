@@ -1,8 +1,16 @@
 import os
 import time
+from dotenv import load_dotenv
+load_dotenv()
+import dns.resolver
+try:
+    dns.resolver.default_resolver = dns.resolver.Resolver(configure=False)
+    dns.resolver.default_resolver.nameservers = ['8.8.8.8', '1.1.1.1']
+except Exception:
+    pass
 from pymongo import MongoClient
 
-MONGO_URI = os.environ.get("MONGODB_URI", "mongodb+srv://ftmbotzx:ftm@ftmbotzx.dapowof.mongodb.net/?appName=ftmbotzx")
+MONGO_URI = os.environ.get("MONGO_URI") or os.environ.get("MONGODB_URI") or "mongodb+srv://ftmbotzx:ftm@ftmbotzx.dapowof.mongodb.net/?appName=ftmbotzx"
 DB_NAME = os.environ.get("DB_NAME", "drivebot")
 _client = MongoClient(MONGO_URI)
 _db = _client[DB_NAME]
