@@ -10395,6 +10395,22 @@ def _task_watchdog():
             print(f"[WATCHDOG] error: {e}")
 
 
+def _anti_sleep_worker():
+    """Background thread: ping PUBLIC_URL every 2 minutes to keep hosting alive 24/7."""
+    time.sleep(15)
+    target_url = (PUBLIC_URL or "").rstrip("/")
+    if not target_url:
+        print("[ANTI_SLEEP] No PUBLIC_URL set — self-ping inactive", flush=True)
+        return
+    print(f"[ANTI_SLEEP] Active — auto-pinging {target_url} every 2 minutes", flush=True)
+    while True:
+        try:
+            requests.get(target_url, timeout=15)
+        except Exception as e:
+            print(f"[ANTI_SLEEP] Ping warning: {e}", flush=True)
+        time.sleep(120)
+
+
 def send_restart_notifications():
     """Broadcast restart message to all users + log to channel. Runs in background thread."""
     import asyncio
@@ -10503,6 +10519,7 @@ if __name__ == "__main__":
     restore_thumbnails()
     ensure_db_topics()
     threading.Thread(target=_task_watchdog, daemon=True, name="task-watchdog").start()
+    threading.Thread(target=_anti_sleep_worker, daemon=True, name="anti-sleep").start()
     threading.Thread(target=send_restart_notifications, daemon=True, name="restart-notify").start()
     # Auto-start FTM client if session string is saved in DB
     import asyncio
