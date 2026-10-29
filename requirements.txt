@@ -18,3 +18,7 @@ aiohttp
 urllib3
 yt-dlp
 dnspython
+python-dotenv
+beautifulsoup4
+playwright-stealth
+
