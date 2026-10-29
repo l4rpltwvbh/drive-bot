@@ -21,4 +21,6 @@ dnspython
 python-dotenv
 beautifulsoup4
 playwright-stealth
+ftmgram
+
 
