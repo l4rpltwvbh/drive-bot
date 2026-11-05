@@ -143,35 +143,36 @@ def _get_streams_via_workspace_api(file_id: str, cookie_hdr: str) -> tuple:
     audio_url = None
     title = pr.get("videoDetails", {}).get("title")
 
-    # Muxed formats (already have audio + video merged) - sort by height descending (e.g. 720p > 360p)
-    muxed = [f for f in formats if f.get("url")]
-    muxed.sort(key=lambda x: int(x.get("height", 0)), reverse=True)
-    if muxed:
-        video_url = muxed[0]["url"]
+    # 1. Prioritize adaptive formats (separate video + audio) for full 1080p/720p quality and 20+ MB/s parallel speed
+    v_candidates = []
+    a_candidates = []
+    for fmt in adaptive:
+        u = fmt.get("url", "")
+        mime = fmt.get("mimeType", "")
+        itag = fmt.get("itag", 0)
+        if not u:
+            continue
+        if mime.startswith("video/"):
+            rank = VIDEO_ITAGS.index(itag) if itag in VIDEO_ITAGS else 999
+            v_candidates.append((rank, u))
+        elif mime.startswith("audio/"):
+            rank = AUDIO_ITAGS.index(itag) if itag in AUDIO_ITAGS else 999
+            a_candidates.append((rank, u))
 
-    # If adaptive is needed or if no muxed
+    v_candidates.sort(key=lambda x: x[0])
+    a_candidates.sort(key=lambda x: x[0])
+
+    if v_candidates:
+        video_url = v_candidates[0][1]
+    if a_candidates:
+        audio_url = a_candidates[0][1]
+
+    # 2. Fallback to muxed formats if adaptive video wasn't found
     if not video_url:
-        v_candidates = []
-        a_candidates = []
-        for fmt in adaptive:
-            u = fmt.get("url", "")
-            mime = fmt.get("mimeType", "")
-            itag = fmt.get("itag", 0)
-            if not u:
-                continue
-            if mime.startswith("video/"):
-                rank = VIDEO_ITAGS.index(itag) if itag in VIDEO_ITAGS else 999
-                v_candidates.append((rank, u))
-            elif mime.startswith("audio/"):
-                rank = AUDIO_ITAGS.index(itag) if itag in AUDIO_ITAGS else 999
-                a_candidates.append((rank, u))
-
-        v_candidates.sort(key=lambda x: x[0])
-        a_candidates.sort(key=lambda x: x[0])
-        if v_candidates:
-            video_url = v_candidates[0][1]
-        if a_candidates:
-            audio_url = a_candidates[0][1]
+        muxed = [f for f in formats if f.get("url")]
+        muxed.sort(key=lambda x: int(x.get("height", 0)), reverse=True)
+        if muxed:
+            video_url = muxed[0]["url"]
 
     if not video_url:
         raise RuntimeError("No stream URL found in workspace streamingData")
