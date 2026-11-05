@@ -166,6 +166,30 @@ def download_stream(
     url     = strip_drive_range_from_url(url)
     headers = clean_captured_headers(headers)
 
+    # 1. Try aria2c for high-speed parallel chunk sockets if available
+    try:
+        from fallback.aria2_downloader import is_aria2_available, aria2_download
+        if is_aria2_available():
+            def _a2_prog(cur, tot, spd, ela, eta):
+                if progress_cb:
+                    progress_cb(cur, tot, label)
+            print(f"[{label.upper()}] Starting aria2c with 16 connections for {out_path}")
+            return aria2_download(
+                url=url,
+                headers=headers,
+                out_path=out_path,
+                connections=16,
+                progress_cb=_a2_prog,
+                cancel_fn=cancel_fn,
+            )
+    except Exception as a2_err:
+        print(f"[{label.upper()}] aria2c failed ({a2_err}), falling back to Python thread pool...")
+        try:
+            if os.path.exists(out_path):
+                os.remove(out_path)
+        except Exception:
+            pass
+
     total     = _get_total_size(url, headers)
     prog_lock = threading.Lock()
     progress  = {"done": 0}

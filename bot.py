@@ -2996,6 +2996,37 @@ def merge_parts(parts, out):
 def download_file(url, cookies, filepath, progress_cb=None,
                   num_threads: int = 16, cancel_fn=None):
     """Multi-threaded Drive download. cancel_fn() → True stops the download."""
+    # 1. Try aria2c for maximum speed if available
+    try:
+        from fallback.aria2_downloader import is_aria2_available, aria2_download
+        if is_aria2_available():
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                              "AppleWebKit/537.36 (KHTML, like Gecko) "
+                              "Chrome/124.0.0.0 Safari/537.36",
+            }
+            if cookies:
+                if isinstance(cookies, dict):
+                    headers["Cookie"] = "; ".join(f"{k}={v}" for k, v in cookies.items())
+                elif isinstance(cookies, str):
+                    headers["Cookie"] = cookies
+            print(f"[ARIA2] Downloading {filepath} with aria2c ({num_threads} connections)...")
+            return aria2_download(
+                url=url,
+                headers=headers,
+                out_path=filepath,
+                connections=num_threads,
+                progress_cb=progress_cb,
+                cancel_fn=cancel_fn,
+            )
+    except Exception as _a2_e:
+        print(f"[ARIA2] aria2c fallback to threads: {_a2_e}")
+        try:
+            if os.path.exists(filepath):
+                os.remove(filepath)
+        except Exception:
+            pass
+
     local_errors = []   # per-call list — avoids race condition with global thread_errors
     session    = _make_session(num_threads, cookies)
     total_size = get_file_size(url, cookies)
