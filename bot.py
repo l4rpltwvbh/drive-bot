@@ -10495,6 +10495,11 @@ if __name__ == "__main__":
         print(f"[STARTUP] Cleanup warning: {_e}", flush=True)
 
     cookie_server.start_in_background(port=_flask_port)
+    try:
+        from cf_auto_tunnel import start_auto_tunnel_thread
+        start_auto_tunnel_thread(port=_flask_port)
+    except Exception as _tfe:
+        print(f"[TUNNEL] Auto tunnel launch error: {_tfe}", flush=True)
     print(f"[CONFIG] Public URL: {PUBLIC_URL or '(none — cookie page unavailable)'}", flush=True)
     print("[BOT] Telegram se connect ho raha hai…", flush=True)
     bot.start()

@@ -11,19 +11,8 @@ services:
       - bot_downloads:/app/downloads
       - bot_thumbs:/app/thumbnails
       - bot_session:/app/drive_bot.session
-    depends_on:
-      - mongo
-
-  mongo:
-    image: mongo:7
-    restart: always
-    volumes:
-      - mongo_data:/data/db
-    ports:
-      - "27017:27017"
 
 volumes:
   bot_downloads:
   bot_thumbs:
   bot_session:
-  mongo_data:

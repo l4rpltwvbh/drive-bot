@@ -39,6 +39,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     && rm -rf /var/lib/apt/lists/*
 
+# Install cloudflared binary inside container for auto-tunneling
+RUN curl -fsSL -o /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64 \
+    && chmod +x /usr/local/bin/cloudflared
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
