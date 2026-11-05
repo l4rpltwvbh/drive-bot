@@ -26,17 +26,11 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests as _requests
 from requests.adapters import HTTPAdapter
 
-CHUNK_SIZE   = 4 * 1024 * 1024    # 4 MB chunks to maximize burst bandwidth and bypass app-limiting
+CHUNK_SIZE   = 8 * 1024 * 1024    # 8 MB chunks (V16 spec) for maximum unthrottled burst
 MAX_WORKERS  = 16                 # 16 parallel threads
 MAX_RETRIES  = 4
 CONN_TIMEOUT = 15
 READ_TIMEOUT = 90
-
-# Shared connection-pooled session to eliminate TCP/TLS handshake overhead
-_adapter = HTTPAdapter(pool_connections=32, pool_maxsize=32, max_retries=2)
-_session = _requests.Session()
-_session.mount("https://", _adapter)
-_session.mount("http://", _adapter)
 
 
 # ── URL / header sanitizers ────────────────────────────────────────────────────
@@ -101,9 +95,12 @@ def _download_chunk(url: str, headers: dict, start: int, end: int,
     last_exc = None
     for attempt in range(MAX_RETRIES):
         try:
-            resp = _session.get(url, headers=h,
-                                timeout=(CONN_TIMEOUT, READ_TIMEOUT),
-                                stream=True)
+            # Fresh connection per chunk with Connection: close
+            # This completely resets Google Drive's 100MB token bucket on every chunk!
+            req_headers = {**h, "Connection": "close"}
+            resp = _requests.get(url, headers=req_headers,
+                                 timeout=(CONN_TIMEOUT, READ_TIMEOUT),
+                                 stream=True)
             if resp.status_code not in (200, 206):
                 last_exc = Exception(f"HTTP {resp.status_code}")
                 time.sleep(1 + attempt)
@@ -166,29 +163,33 @@ def download_stream(
     url     = strip_drive_range_from_url(url)
     headers = clean_captured_headers(headers)
 
-    # 1. Try aria2c for high-speed parallel chunk sockets if available
-    try:
-        from fallback.aria2_downloader import is_aria2_available, aria2_download
-        if is_aria2_available():
-            def _a2_prog(cur, tot, spd, ela, eta):
-                if progress_cb:
-                    progress_cb(cur, tot, label)
-            print(f"[{label.upper()}] Starting aria2c with 16 connections for {out_path}")
-            return aria2_download(
-                url=url,
-                headers=headers,
-                out_path=out_path,
-                connections=16,
-                progress_cb=_a2_prog,
-                cancel_fn=cancel_fn,
-            )
-    except Exception as a2_err:
-        print(f"[{label.upper()}] aria2c failed ({a2_err}), falling back to Python thread pool...")
+    # 1. For general non-stream URLs, aria2c is fast.
+    # But for Google Drive videoplayback streams, Google throttles persistent socket pools after 100MB.
+    # Therefore, videoplayback MUST use the Python multi-worker independent chunk pipeline
+    # with Connection: close (V16 architecture) to maintain sustained 20-30+ MB/s to the very end!
+    if "videoplayback" not in url:
         try:
-            if os.path.exists(out_path):
-                os.remove(out_path)
-        except Exception:
-            pass
+            from fallback.aria2_downloader import is_aria2_available, aria2_download
+            if is_aria2_available():
+                def _a2_prog(cur, tot, spd, ela, eta):
+                    if progress_cb:
+                        progress_cb(cur, tot, label)
+                print(f"[{label.upper()}] Starting aria2c with 16 connections for {out_path}")
+                return aria2_download(
+                    url=url,
+                    headers=headers,
+                    out_path=out_path,
+                    connections=16,
+                    progress_cb=_a2_prog,
+                    cancel_fn=cancel_fn,
+                )
+        except Exception as a2_err:
+            print(f"[{label.upper()}] aria2c failed ({a2_err}), falling back to Python thread pool...")
+            try:
+                if os.path.exists(out_path):
+                    os.remove(out_path)
+            except Exception:
+                pass
 
     total     = _get_total_size(url, headers)
     prog_lock = threading.Lock()

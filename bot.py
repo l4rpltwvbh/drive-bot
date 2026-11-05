@@ -2999,7 +2999,7 @@ def download_file(url, cookies, filepath, progress_cb=None,
     # 1. Try aria2c for maximum speed if available
     try:
         from fallback.aria2_downloader import is_aria2_available, aria2_download
-        if is_aria2_available():
+        if is_aria2_available() and "videoplayback" not in (url or ""):
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
                               "AppleWebKit/537.36 (KHTML, like Gecko) "
