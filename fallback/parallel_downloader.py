@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import requests as _requests
 from requests.adapters import HTTPAdapter
 
-CHUNK_SIZE   = 16 * 1024 * 1024   # 16 MB chunks for maximum throughput
+CHUNK_SIZE   = 4 * 1024 * 1024    # 4 MB chunks to maximize burst bandwidth and bypass app-limiting
 MAX_WORKERS  = 16                 # 16 parallel threads
 MAX_RETRIES  = 4
 CONN_TIMEOUT = 15

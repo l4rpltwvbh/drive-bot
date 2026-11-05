@@ -4576,13 +4576,21 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     _edit(f"<b>{prefix}⬇️ Video + Audio parallel download ho rahe hain…</b>")
 
                     _t_start_va = time.time()
+                    _va_spd = {"last_b": 0, "last_t": time.time(), "win": []}
                     def _va_prog(v_done, v_total, a_done, a_total):
                         now = time.time()
                         comb_done  = v_done + a_done
                         comb_total = (v_total or 0) + (a_total or 0)
                         elapsed    = max(0.1, now - _t_start_va)
-                        speed      = comb_done / elapsed
-                        eta        = (comb_total - comb_done) / speed if (speed > 0 and comb_total > comb_done) else 0
+                        dt = now - _va_spd["last_t"]
+                        db = comb_done - _va_spd["last_b"]
+                        if dt >= 0.5 and db >= 0:
+                            _va_spd["win"].append(db / dt)
+                            if len(_va_spd["win"]) > 5: _va_spd["win"].pop(0)
+                            _va_spd["last_b"] = comb_done
+                            _va_spd["last_t"] = now
+                        speed = sum(_va_spd["win"]) / len(_va_spd["win"]) if _va_spd["win"] else (comb_done / elapsed)
+                        eta   = (comb_total - comb_done) / speed if (speed > 0 and comb_total > comb_done) else 0
                         if now - last_edit["t"] < 2: return
                         last_edit["t"] = now
                         _edit(draw_progress_card(
@@ -4654,11 +4662,19 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                 else:
                     # Video only (muxed stream)
                     _t_start_s = time.time()
+                    _s_spd = {"last_b": 0, "last_t": time.time(), "win": []}
                     def _stream_prog(done, total_b, label=""):
                         now = time.time()
                         elapsed = max(0.1, now - _t_start_s)
-                        speed   = done / elapsed
-                        eta     = (total_b - done) / speed if (speed > 0 and total_b > done) else 0
+                        dt = now - _s_spd["last_t"]
+                        db = done - _s_spd["last_b"]
+                        if dt >= 0.5 and db >= 0:
+                            _s_spd["win"].append(db / dt)
+                            if len(_s_spd["win"]) > 5: _s_spd["win"].pop(0)
+                            _s_spd["last_b"] = done
+                            _s_spd["last_t"] = now
+                        speed = sum(_s_spd["win"]) / len(_s_spd["win"]) if _s_spd["win"] else (done / elapsed)
+                        eta   = (total_b - done) / speed if (speed > 0 and total_b > done) else 0
                         if now - last_edit["t"] < 2: return
                         last_edit["t"] = now
                         _edit(draw_progress_card(

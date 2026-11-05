@@ -75,16 +75,19 @@ def aria2_download(
     out_name = os.path.basename(out_path)
     os.makedirs(out_dir, exist_ok=True)
 
+    split_count = max(connections * 4, 32)
     cmd = [
         "aria2c",
         "--summary-interval=1",
         f"-x{connections}",
-        f"-s{connections}",
+        f"-s{split_count}",
         "-j1",
         "-k1M",
         "--min-split-size=1M",
         f"--max-connection-per-server={connections}",
-        f"--split={connections}",
+        f"--split={split_count}",
+        "--piece-length=1M",
+        "--disk-cache=32M",
         "--continue=true",
         "--allow-overwrite=true",
         "--auto-file-renaming=false",
@@ -93,8 +96,8 @@ def aria2_download(
         "--retry-wait=2",
         "--max-tries=5",
         "--timeout=30",
-        f"-d", out_dir,
-        f"-o", out_name,
+        "-d", out_dir,
+        "-o", out_name,
     ]
 
     for k, v in (headers or {}).items():
