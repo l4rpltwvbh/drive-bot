@@ -5551,7 +5551,37 @@ def _do_pdf_download(client, uid: int, orientation: str):
         try:
             _drive_auth_download(pdf_url, cookies, filepath, on_progress, _cancelled)
         except Exception as _pdf_dl_err:
-            if "download_disabled_by_owner" in str(_pdf_dl_err):
+            # Fallback 1: If Docs export failed, check if this is an uploaded Office doc (.docx/.xlsx/.pptx)
+            _orig_ok = False
+            for _alt_url in [
+                f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
+                f"https://drive.google.com/uc?export=download&id={file_id}"
+            ]:
+                try:
+                    _meta_tmp = {}
+                    _drive_auth_download(_alt_url, cookies, filepath, on_progress, _cancelled, meta_out=_meta_tmp)
+                    if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                        with open(filepath, "rb") as _tf: _h = _tf.read(1)
+                        if _h != b"<":
+                            _orig_ok = True
+                            _sug = _meta_tmp.get("suggested_filename")
+                            if _sug:
+                                _clean_sug = clean_filename(_sug)
+                                _new_path  = os.path.join(DOWNLOADS_DIR, _clean_sug)
+                                try:
+                                    os.rename(filepath, _new_path)
+                                    filepath    = _new_path
+                                    valid_title = _clean_sug
+                                except: pass
+                            break
+                        else:
+                            try: os.remove(filepath)
+                            except: pass
+                except Exception:
+                    try: os.remove(filepath)
+                    except: pass
+
+            if not _orig_ok and "download_disabled_by_owner" in str(_pdf_dl_err):
                 _edit(
                     "🔄 <b>Download disabled by owner</b> — browser kholke page-by-page extract kar raha hai…\n"
                     "<i>(kuch minutes lag sakte hain)</i>"
