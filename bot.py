@@ -87,13 +87,18 @@ for _fsc in os.environ.get("FORCE_SUB_CHANNELS", "").split(","):
         FORCE_SUB_CHANNELS.append(_fsc)
 
 # Generic public URL — works on Render, Railway, Replit, or any custom domain.
-# Priority: explicit PUBLIC_URL > RENDER_EXTERNAL_URL > RAILWAY_PUBLIC_DOMAIN > REPLIT_DEV_DOMAIN
+# Priority: explicit custom PUBLIC_URL > RENDER_EXTERNAL_URL > PUBLIC_URL (.onrender.com) > RAILWAY_PUBLIC_DOMAIN > REPLIT_DEV_DOMAIN
 def _resolve_public_url() -> str:
-    if os.environ.get("PUBLIC_URL"):
-        return os.environ["PUBLIC_URL"].rstrip("/")
-    if os.environ.get("RENDER_EXTERNAL_URL"):
-        u = os.environ["RENDER_EXTERNAL_URL"]
-        return (u if u.startswith("http") else f"https://{u}").rstrip("/")
+    pub = os.environ.get("PUBLIC_URL", "").strip().rstrip("/")
+    ren = os.environ.get("RENDER_EXTERNAL_URL", "").strip().rstrip("/")
+    if ren and not ren.startswith("http"):
+        ren = f"https://{ren}"
+    # If running on Render and PUBLIC_URL is an .onrender.com address, always prefer RENDER_EXTERNAL_URL
+    # so switching Render services never leaves a stale .onrender.com URL
+    if ren and (not pub or ".onrender.com" in pub):
+        return ren
+    if pub:
+        return pub
     if os.environ.get("RAILWAY_PUBLIC_DOMAIN"):
         return f"https://{os.environ['RAILWAY_PUBLIC_DOMAIN']}".rstrip("/")
     if os.environ.get("REPLIT_DEV_DOMAIN"):
@@ -10644,19 +10649,25 @@ def _task_watchdog():
 
 
 def _anti_sleep_worker():
-    """Background thread: ping PUBLIC_URL every 2 minutes to keep hosting alive 24/7."""
-    time.sleep(15)
-    target_url = (PUBLIC_URL or "").rstrip("/")
+    """Background thread: ping PUBLIC_URL / RENDER_EXTERNAL_URL every 35 seconds (<50s inactivity limit) to keep Render awake 24/7."""
+    time.sleep(10)
+    target_url = (_resolve_public_url() or "").rstrip("/")
     if not target_url:
         print("[ANTI_SLEEP] No PUBLIC_URL set — self-ping inactive", flush=True)
         return
-    print(f"[ANTI_SLEEP] Active — auto-pinging {target_url} every 2 minutes", flush=True)
+    print(f"[ANTI_SLEEP] Active — auto-pinging {target_url} every 35 seconds", flush=True)
+    _ping_hdrs = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache",
+    }
     while True:
         try:
-            requests.get(target_url, timeout=15)
+            _u = f"{target_url}/?keepalive={int(time.time())}"
+            requests.get(_u, headers=_ping_hdrs, timeout=15)
         except Exception as e:
             print(f"[ANTI_SLEEP] Ping warning: {e}", flush=True)
-        time.sleep(120)
+        time.sleep(35)
 
 
 def send_restart_notifications():
