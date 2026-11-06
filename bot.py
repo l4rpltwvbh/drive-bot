@@ -2203,6 +2203,12 @@ def _drive_auth_download(url: str, cookies: dict, filepath: str,
                             allow_redirects=True,
                             timeout=(_CONN_TIMEOUT, _READ_TIMEOUT))
 
+    # Reject HTML login/error pages disguised as downloads
+    _ct_chk = stream_resp.headers.get("content-type", "").lower()
+    if "accounts.google.com" in stream_resp.url or "text/html" in _ct_chk:
+        stream_resp.close()
+        raise Exception("Google login required — cookies expired or invalid (got sign-in page)")
+
     # Populate caller-supplied meta dict with filename / content-type
     if meta_out is not None:
         ct_resp = stream_resp.headers.get("content-type", "")
@@ -4337,7 +4343,18 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                             _drive_auth_download(_uc2_url, saved_cookies, tmp_path,
                                                  on_progress_raw, _cancelled_raw,
                                                  meta_out=_doc_meta)
-                            _doc_ok = True
+                            # Validate: binary files never start with '<'; HTML/JSON pages do
+                            if os.path.exists(tmp_path):
+                                with open(tmp_path, "rb") as _tf2: _magic2 = _tf2.read(1)
+                                if _magic2 == b"<":
+                                    print(f"[DOC] usercontent returned HTML — login required or cookies expired")
+                                    try: os.remove(tmp_path)
+                                    except: pass
+                                    _doc_meta = {}
+                                else:
+                                    _doc_ok = True
+                            else:
+                                _doc_ok = True
                         except Exception as _uc2_err:
                             _uc2_err_str = str(_uc2_err)
                             print(f"[DOC] usercontent download failed ({_uc2_err_str})")
