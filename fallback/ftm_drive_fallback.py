@@ -134,37 +134,36 @@ def _clean_name(name: str) -> str:
     name = re.sub(r"[. ]+$", "", name)
     return name or "video"
 
+_VALID_VIDEO_EXTS = {".mp4", ".mkv", ".avi", ".mov", ".flv", ".wmv", ".webm", ".ts", ".m4v", ".3gp"}
+
 def _resolve_filename(original_filename, streams_title, file_id) -> tuple:
     """
     Returns (display_name_no_ext, ext) where:
       display_name_no_ext = clean title for captions / status bar
-      ext                 = file extension with dot (e.g. ".mp4")
+      ext                 = ".mp4" (we always produce mp4 from merge)
     Priority: hint with ext → streams.title (API returns full filename with ext) → drive_{id}
     """
-    ext = ".mp4"   # fallback; we always produce mp4 from merge
+    ext = ".mp4"   # we always produce mp4 from merge
 
     if original_filename:
         base = os.path.basename(original_filename)
         name_part, ext_part = os.path.splitext(base)
-        name_part = _clean_name(name_part)
-        if ext_part:
-            ext = ext_part.lower()
-        if name_part and name_part.lower() not in ("drive_video", "video", "file"):
-            return name_part, ext
+        if ext_part and ext_part.lower() in _VALID_VIDEO_EXTS:
+            t = _clean_name(name_part)
+        else:
+            t = _clean_name(base)
+        if t and t.lower() not in ("drive_video", "video", "file"):
+            return t, ext
 
     if streams_title and streams_title.strip():
         raw = streams_title.strip()
-        # Drive API returns the real filename including extension (e.g. "Meeting.mp4")
-        # Extract extension if present so it doesn't end up in the display name
         name_part, ext_part = os.path.splitext(raw)
-        if ext_part and 2 <= len(ext_part) <= 6:
+        if ext_part and ext_part.lower() in _VALID_VIDEO_EXTS:
             t = _clean_name(name_part)
-            resolved_ext = ext_part.lower()
         else:
             t = _clean_name(raw)
-            resolved_ext = ext
         if t and t.lower() not in ("drive_video", "video", "file"):
-            return t, resolved_ext
+            return t, ext
 
     return f"drive_{file_id[:8]}", ext
 
@@ -393,11 +392,11 @@ def ftm_drive_fallback(
                 file_size   = os.path.getsize(_gapi_path)
                 meta        = _get_video_meta(_gapi_path)
                 display_no_ext, ext = _resolve_filename(original_filename, None, file_id)
-                display_name = display_no_ext
                 final_name   = make_ftm_output_name(display_no_ext + ext, ext)
+                display_name = final_name
                 output_path  = os.path.join(DOWNLOADS_DIR, final_name)
                 shutil.move(_gapi_path, output_path)
-                file_type    = "Video" if upload_type == "video" and meta.get("duration", 0) > 0 else "Document"
+                file_type    = "Video" if upload_type == "video" else "Document"
                 caption      = _build_caption(uid, display_name, file_size, meta, file_type)
                 if tt == "custom" and custom_thumb_path and os.path.exists(custom_thumb_path):
                     thumb_path = custom_thumb_path
@@ -422,7 +421,7 @@ def ftm_drive_fallback(
                     _edit(_draw_upload_card(display_name, total_b, current, spd, ela, eta, cpu, ram, file_index, total), CANCEL_KB)
                 cpu0, ram0 = _sys_stats()
                 _edit(_draw_upload_card(display_name, file_size, 0, 0, 0, float("inf"), cpu0, ram0, file_index, total), CANCEL_KB)
-                if upload_type == "video" and meta.get("duration", 0) > 0:
+                if upload_type == "video":
                     sent = client.send_video(
                         chat_id=message.chat.id, video=output_path,
                         caption=caption, parse_mode=enums.ParseMode.HTML,
@@ -472,8 +471,8 @@ def ftm_drive_fallback(
             audio_url  = audio_url or None
             dl_headers = _ytdlp_streams.get("headers", {})
 
-        display_name = display_no_ext
         final_name   = make_ftm_output_name(display_no_ext + ext, ext)
+        display_name = final_name
         has_audio    = bool(audio_url)
 
         _edit(
@@ -536,7 +535,7 @@ def ftm_drive_fallback(
             thumb_path = _tp if _gen_thumbnail(output_path, _tp, meta["duration"]) else None
 
         # ── 7. Caption (user template or default) ─────────────────────────
-        file_type = "Video" if upload_type == "video" and meta.get("duration", 0) > 0 else "Document"
+        file_type = "Video" if upload_type == "video" else "Document"
         caption   = _build_caption(uid, display_name, file_size, meta, file_type)
 
         # ── 8. Upload progress card ───────────────────────────────────────
@@ -564,7 +563,7 @@ def ftm_drive_fallback(
                                 float("inf"), cpu0, ram0, file_index, total), CANCEL_KB)
 
         # ── 9. Send to user ───────────────────────────────────────────────
-        if upload_type == "video" and meta.get("duration", 0) > 0:
+        if upload_type == "video":
             sent = client.send_video(
                 chat_id=message.chat.id,
                 video=output_path,

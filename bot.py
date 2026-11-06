@@ -1008,6 +1008,29 @@ def list_folder_files_with_cookies(folder_id: str, cookies: dict,
 #  Filename / format helpers
 # ─────────────────────────────────────────────
 
+_KNOWN_VALID_EXTS = (
+    VIDEO_EXTENSIONS | IMAGE_EXTENSIONS | AUDIO_EXTENSIONS | {
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".zip", ".rar", ".7z", ".tar", ".gz", ".bz2", ".xz",
+        ".txt", ".csv", ".json", ".xml", ".html", ".htm", ".md",
+        ".epub", ".mobi", ".apk", ".exe", ".dmg", ".iso", ".bin",
+        ".srt", ".vtt", ".ass", ".sub", ".py", ".js", ".sql",
+        ".odt", ".ods", ".odp", ".rtf",
+    }
+)
+
+
+def _split_known_ext(filename: str) -> tuple:
+    """Split (stem, ext) ONLY if ext is a genuine file extension (e.g. .mp4, .docx).
+    Prevents names like '1. Class 1' or 'Lecture.dz_12345' from being split into
+    bogus extensions like '. Class 1' or '.dz_12345'.
+    """
+    stem, ext = os.path.splitext(filename)
+    if ext and ext.lower() in _KNOWN_VALID_EXTS:
+        return stem, ext
+    return filename, ""
+
+
 def clean_filename(name: str) -> str:
     name = name.replace("+", " ")
     name = re.sub(r'[<>:"/\\|?*\x00-\x1F]', "", name)
@@ -1029,8 +1052,10 @@ def _apply_file_tag(filename: str) -> str:
     tag = FILE_TAG.strip()
     if not tag:
         return filename
-    stem, ext = os.path.splitext(filename)
+    stem, ext = _split_known_ext(filename)
     if not stem:
+        return filename
+    if tag in stem:
         return filename
     return f"{stem} {tag}{ext}"
 
@@ -3166,6 +3191,18 @@ def _do_upload(client, message, uid, filepath, valid_title,
     edit_fn(draw_upload_card(valid_title, file_size, 0, 0, 0, float("inf"),
                              cpu0, ram0, file_index, total_files), CANCEL_KB)
 
+    # ── Ensure video files have a proper .mp4 extension before tagging ────
+    _pre_stem, _pre_ext = _split_known_ext(os.path.basename(filepath))
+    if (upload_type == "video" or meta.get("duration") or meta.get("width")) and _pre_ext.lower() not in VIDEO_EXTENSIONS:
+        if _pre_ext.lower() not in (IMAGE_EXTENSIONS | AUDIO_EXTENSIONS | {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".rar", ".txt", ".csv"}):
+            _mp4_fp = os.path.join(os.path.dirname(filepath), f"{_pre_stem}.mp4")
+            try:
+                os.rename(filepath, _mp4_fp)
+                filepath = _mp4_fp
+                valid_title = f"{_pre_stem}.mp4"
+            except Exception:
+                pass
+
     # ── Apply global file tag (admin-controlled) ──────────────────────────
     _orig_bn = os.path.basename(filepath)
     _tagged_bn = _apply_file_tag(_orig_bn)
@@ -3174,13 +3211,16 @@ def _do_upload(client, message, uid, filepath, valid_title,
         try:
             os.rename(filepath, _new_fp)
             filepath = _new_fp
-            valid_title = os.path.splitext(_tagged_bn)[0]
+            valid_title = _tagged_bn
         except Exception as _tag_err:
             print(f"[TAG] Rename failed: {_tag_err}")
+    else:
+        valid_title = _orig_bn
 
     tpl  = db.get_caption_template(uid)
-    _ext = os.path.splitext(filepath)[1].lower()
-    is_video  = _ext in VIDEO_EXTENSIONS
+    _, _ext = _split_known_ext(filepath)
+    _ext = _ext.lower()
+    is_video  = (_ext in VIDEO_EXTENSIONS) or (upload_type == "video" and bool(meta.get("duration") or meta.get("width")))
     is_image  = _ext in IMAGE_EXTENSIONS
     is_audio  = _ext in AUDIO_EXTENSIONS
 
@@ -3342,6 +3382,18 @@ def _do_ftm_upload(filepath, valid_title, file_size, meta, thumb_path,
     if not session_str:
         raise RuntimeError("FTM session nahi hai. Admin /ftmsession se set kare.")
 
+    # ── Ensure video files have a proper .mp4 extension before tagging ────
+    _pre_stem, _pre_ext = _split_known_ext(os.path.basename(filepath))
+    if (upload_type == "video" or meta.get("duration") or meta.get("width")) and _pre_ext.lower() not in VIDEO_EXTENSIONS:
+        if _pre_ext.lower() not in (IMAGE_EXTENSIONS | AUDIO_EXTENSIONS | {".pdf", ".docx", ".xlsx", ".pptx", ".zip", ".rar", ".txt", ".csv"}):
+            _mp4_fp = os.path.join(os.path.dirname(filepath), f"{_pre_stem}.mp4")
+            try:
+                os.rename(filepath, _mp4_fp)
+                filepath = _mp4_fp
+                valid_title = f"{_pre_stem}.mp4"
+            except Exception:
+                pass
+
     # ── Apply global file tag (admin-controlled) ──────────────────────────
     _orig_bn = os.path.basename(filepath)
     _tagged_bn = _apply_file_tag(_orig_bn)
@@ -3350,9 +3402,11 @@ def _do_ftm_upload(filepath, valid_title, file_size, meta, thumb_path,
         try:
             os.rename(filepath, _new_fp)
             filepath = _new_fp
-            valid_title = os.path.splitext(_tagged_bn)[0]
+            valid_title = _tagged_bn
         except Exception as _tag_err:
             print(f"[TAG] FTM rename failed: {_tag_err}")
+    else:
+        valid_title = _orig_bn
 
     sz_str = format_size(file_size)
     print(f"[FTM_UPLOAD] START  '{valid_title}'  size={sz_str}  index={file_index}/{total_files}")
@@ -3430,8 +3484,9 @@ def _do_ftm_upload(filepath, valid_title, file_size, meta, thumb_path,
     if meta.get("width") and meta.get("height"):
         caption += f"\n📐 <b>Resolution:</b> {meta['width']}×{meta['height']}"
 
-    _ext      = os.path.splitext(filepath)[1].lower()
-    is_video  = _ext in VIDEO_EXTENSIONS
+    _, _ext   = _split_known_ext(filepath)
+    _ext      = _ext.lower()
+    is_video  = (_ext in VIDEO_EXTENSIONS) or (upload_type == "video" and bool(meta.get("duration") or meta.get("width")))
     is_audio  = _ext in AUDIO_EXTENSIONS
     is_image  = _ext in IMAGE_EXTENSIONS
 
@@ -3677,7 +3732,7 @@ def upload_local_file(client, message, uid, filepath,
                 return None
 
             file_size   = os.path.getsize(filepath)
-            valid_title = clean_filename(os.path.splitext(os.path.basename(filepath))[0])
+            valid_title = clean_filename(os.path.basename(filepath))
             _edit(f"<b>{prefix}🔍 Metadata extracting…</b>")
             meta = get_video_metadata(filepath)
 
@@ -3941,39 +3996,49 @@ def process_single_file(client, message, uid, file_id, hint_name="",
             cached_fname = cached.get("fname") or hint_name or "file"
             cached_ftype = cached.get("file_type", "File")
             cached_fsize = cached.get("file_size", 0)
-            try:
-                _edit(
-                    f"⚡ <b>{prefix}Cache Hit!</b>\n"
-                    f"🔄 Dump Channel se copy ho raha hai…",
-                    CANCEL_KB,
-                )
-                # Apply user's caption template if set
-                _tpl = db.get_caption_template(uid)
-                _cap = None
-                if _tpl:
-                    _cap = (_tpl
-                            .replace("{filename}", cached_fname)
-                            .replace("{name}", display or f"User_{uid}")
-                            .replace("{size}", str(cached_fsize)))
-                sent = client.copy_message(
-                    chat_id=message.chat.id,
-                    from_chat_id=DUMP_CHANNEL_ID,
-                    message_id=dump_msg_id,
-                    caption=_cap,
-                    parse_mode=enums.ParseMode.HTML if _cap else None,
-                )
-                _edit(f"✅ <b>{prefix}Sent from Cache!</b>", DONE_KB)
-                _copy_to_destinations(client, message, uid, sent,
-                                      display=display, file_type=cached_ftype,
-                                      file_size=cached_fsize, source_url=source_url,
-                                      folder_url=folder_url)
-                db.save_download_history(uid, cached_fname, cached_fsize, cached_ftype,
-                                         source_url, folder_url)
-                print(f"[FILE_CACHE] Hit uid={uid} file_id={file_id} dump_msg={dump_msg_id}")
-                return sent
-            except Exception as ace:
-                print(f"[FILE_CACHE] Miss fallback uid={uid}: {ace}")
-                _edit(f"⚠️ <b>{prefix}Cache copy fail, normal download shuru…</b>")
+            _, _c_ext    = _split_known_ext(cached_fname)
+            _cache_valid = bool(_c_ext) and not (
+                (1200000 <= cached_fsize <= 1310000 and cached_ftype == "Document")
+                or (cached_ftype == "Video" and _c_ext.lower() not in VIDEO_EXTENSIONS)
+                or (_c_ext.lower() in VIDEO_EXTENSIONS and cached_ftype != "Video")
+            )
+            if _cache_valid:
+                try:
+                    _edit(
+                        f"⚡ <b>{prefix}Cache Hit!</b>\n"
+                        f"🔄 Dump Channel se copy ho raha hai…",
+                        CANCEL_KB,
+                    )
+                    _tagged_cfname = _apply_file_tag(cached_fname)
+                    # Apply user's caption template if set
+                    _tpl = db.get_caption_template(uid)
+                    _cap = None
+                    if _tpl:
+                        _cap = _render_caption(
+                            _tpl,
+                            filename=_tagged_cfname,
+                            size=format_size(cached_fsize),
+                            file_type=cached_ftype,
+                        )
+                    sent = client.copy_message(
+                        chat_id=message.chat.id,
+                        from_chat_id=DUMP_CHANNEL_ID,
+                        message_id=dump_msg_id,
+                        caption=_cap,
+                        parse_mode=enums.ParseMode.HTML if _cap else None,
+                    )
+                    _edit(f"✅ <b>{prefix}Sent from Cache!</b>", DONE_KB)
+                    _copy_to_destinations(client, message, uid, sent,
+                                          display=display, file_type=cached_ftype,
+                                          file_size=cached_fsize, source_url=source_url,
+                                          folder_url=folder_url)
+                    db.save_download_history(uid, _tagged_cfname, cached_fsize, cached_ftype,
+                                             source_url, folder_url)
+                    print(f"[FILE_CACHE] Hit uid={uid} file_id={file_id} dump_msg={dump_msg_id}")
+                    return sent
+                except Exception as ace:
+                    print(f"[FILE_CACHE] Miss fallback uid={uid}: {ace}")
+                    _edit(f"⚠️ <b>{prefix}Cache copy fail, normal download shuru…</b>")
 
     filepath = thumb_path = last_err = None
 
@@ -4202,7 +4267,7 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                 # In a folder/bulk download (total>1 or folder_url set) → auto portrait.
                 # For single-file downloads → prompt user for orientation choice.
                 if folder_url or total > 1:
-                    raw_title   = os.path.splitext(file_name)[0] if file_name else "document"
+                    raw_title   = _split_known_ext(file_name)[0] if file_name else "document"
                     valid_title = clean_filename(raw_title) + ".pdf"
                     filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
                     pdf_url     = _build_pdf_url(file_id, mime_type, "portrait")
@@ -4219,19 +4284,48 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     try:
                         _drive_auth_download(pdf_url, saved_cookies, filepath, on_progress_doc, _cancelled_doc)
                     except Exception as _pdf_dl_err:
-                        if "download_disabled_by_owner" in str(_pdf_dl_err):
-                            _edit(f"<b>{prefix}🔄 Download disabled — browser se page-by-page extract kar raha hai…</b>")
-                            _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
-                                                           on_progress_doc, status_cb=_edit)
-                            if _vt:
-                                _new_title = clean_filename(_vt) + ".pdf"
-                                _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
-                                try: os.rename(filepath, _new_path)
-                                except: _new_path = filepath; _new_title = valid_title
-                                filepath    = _new_path
-                                valid_title = _new_title
-                        else:
-                            raise
+                        _orig_ok_b = False
+                        for _alt_url_b in [
+                            f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
+                            f"https://drive.google.com/uc?export=download&id={file_id}",
+                        ]:
+                            try:
+                                _meta_b = {}
+                                _drive_auth_download(_alt_url_b, saved_cookies, filepath, on_progress_doc, _cancelled_doc, meta_out=_meta_b)
+                                if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                                    with open(filepath, "rb") as _tfb: _hb = _tfb.read(1)
+                                    if _hb != b"<":
+                                        _orig_ok_b = True
+                                        _sug_b = _meta_b.get("suggested_filename")
+                                        if _sug_b:
+                                            _clean_sug_b = clean_filename(_sug_b)
+                                            _new_path_b  = os.path.join(DOWNLOADS_DIR, _clean_sug_b)
+                                            try:
+                                                os.rename(filepath, _new_path_b)
+                                                filepath    = _new_path_b
+                                                valid_title = _clean_sug_b
+                                            except: pass
+                                        break
+                                    else:
+                                        try: os.remove(filepath)
+                                        except: pass
+                            except Exception:
+                                try: os.remove(filepath)
+                                except: pass
+                        if not _orig_ok_b:
+                            if "download_disabled_by_owner" in str(_pdf_dl_err):
+                                _edit(f"<b>{prefix}🔄 Download disabled — browser se page-by-page extract kar raha hai…</b>")
+                                _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
+                                                               on_progress_doc, status_cb=_edit)
+                                if _vt:
+                                    _new_title = clean_filename(_split_known_ext(_vt)[0]) + ".pdf"
+                                    _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
+                                    try: os.rename(filepath, _new_path)
+                                    except: _new_path = filepath; _new_title = valid_title
+                                    filepath    = _new_path
+                                    valid_title = _new_title
+                            else:
+                                raise
                     if uid in CANCEL_TASKS:
                         CANCEL_TASKS.discard(uid); _edit(f"<b>{prefix}🚫 Cancelled.</b>", None); return None
                     file_size = os.path.getsize(filepath)
@@ -4240,11 +4334,12 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     sent = _do_upload(client, message, uid, filepath, valid_title,
                                       file_size, {}, thumb_path, "document", _edit, file_index, total)
                     _edit(f"✅ <b>{prefix}Document sent!</b>", DONE_KB)
+                    _b_ft = "PDF" if valid_title.lower().endswith(".pdf") else "Document"
                     _copy_to_destinations(client, message, uid, sent, display=display,
-                                          file_type="PDF", file_size=file_size,
+                                          file_type=_b_ft, file_size=file_size,
                                           source_url=source_url, folder_url=folder_url,
                                           drive_file_id=file_id, fname=valid_title)
-                    db.save_download_history(uid, valid_title, file_size, "PDF", source_url, folder_url)
+                    db.save_download_history(uid, valid_title, file_size, _b_ft, source_url, folder_url)
                     return sent
                 PENDING_PDF_ORIENT[uid] = {
                     "file_id": file_id, "hint_name": file_name,
@@ -4435,17 +4530,12 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     _ct_mime = _doc_meta.get("content_type", "")
 
                     if _cd_name:
-                        fb_base = os.path.splitext(_cd_name)[0]
-                        fb_ext  = os.path.splitext(_cd_name)[1]
-                        if not fb_ext and _cd_name:
-                            fb_ext = ""
+                        fb_base, fb_ext = _split_known_ext(_cd_name)
                         print(f"[DOC] filename from Content-Disposition: {_cd_name!r}")
                     elif hint_name:
-                        fb_base = os.path.splitext(hint_name)[0]
-                        fb_ext  = os.path.splitext(hint_name)[1]
+                        fb_base, fb_ext = _split_known_ext(hint_name)
                     elif title and title not in ("file", ""):
-                        fb_base = os.path.splitext(title)[0]
-                        fb_ext  = os.path.splitext(title)[1]
+                        fb_base, fb_ext = _split_known_ext(title)
                     else:
                         fb_base = "file"
                         fb_ext  = ""
@@ -4453,30 +4543,53 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     # ── Magic bytes fallback when extension still unknown ───────
                     if not fb_ext:
                         _MAGIC_EXTS = {
-                            b"\xff\xd8\xff":         ".jpg",
-                            b"\x89PNG":              ".png",
-                            b"GIF8":                 ".gif",
-                            b"RIFF":                 ".webp",
-                            b"\x00\x00\x00\x18ftyp": ".mp4",
-                            b"\x00\x00\x00\x20ftyp": ".mp4",
-                            b"ID3":                  ".mp3",
-                            b"\xff\xfb":             ".mp3",
-                            b"fLaC":                 ".flac",
-                            b"OggS":                 ".ogg",
-                            b"PK\x03\x04":           ".zip",
-                            b"Rar!":                 ".rar",
-                            b"\x1f\x8b":             ".gz",
-                            b"%PDF":                 ".pdf",
-                            b"\x7fELF":              ".bin",
+                            b"\xff\xd8\xff":   ".jpg",
+                            b"\x89PNG":        ".png",
+                            b"GIF8":           ".gif",
+                            b"\x1a\x45\xdf\xa3": ".mp4",
+                            b"ID3":            ".mp3",
+                            b"\xff\xfb":       ".mp3",
+                            b"fLaC":           ".flac",
+                            b"OggS":           ".ogg",
+                            b"PK\x03\x04":     ".zip",
+                            b"Rar!":           ".rar",
+                            b"\x1f\x8b":       ".gz",
+                            b"%PDF":           ".pdf",
+                            b"\x7fELF":        ".bin",
                         }
                         try:
                             with open(tmp_path, "rb") as _mf:
                                 _mb = _mf.read(16)
-                            for sig, ext in _MAGIC_EXTS.items():
-                                if _mb[:len(sig)] == sig:
-                                    fb_ext = ext
-                                    print(f"[DOC] magic-bytes ext detected: {ext}")
-                                    break
+                            if b"ftyp" in _mb[4:12]:
+                                fb_ext = ".mp4"
+                                print("[DOC] magic-bytes ext detected: .mp4 (ftyp)")
+                            elif _mb[:4] == b"RIFF":
+                                if _mb[8:12] == b"AVI ":
+                                    fb_ext = ".mp4"
+                                elif _mb[8:12] == b"WAVE":
+                                    fb_ext = ".wav"
+                                else:
+                                    fb_ext = ".webp"
+                                print(f"[DOC] magic-bytes ext detected: {fb_ext} (RIFF)")
+                            else:
+                                for sig, ext in _MAGIC_EXTS.items():
+                                    if _mb[:len(sig)] == sig:
+                                        fb_ext = ext
+                                        print(f"[DOC] magic-bytes ext detected: {ext}")
+                                        break
+                            if fb_ext == ".zip":
+                                try:
+                                    import zipfile as _zf
+                                    with _zf.ZipFile(tmp_path, "r") as _zobj:
+                                        _znames = set(_zobj.namelist())
+                                        if "word/document.xml" in _znames:
+                                            fb_ext = ".docx"
+                                        elif "xl/workbook.xml" in _znames:
+                                            fb_ext = ".xlsx"
+                                        elif "ppt/presentation.xml" in _znames:
+                                            fb_ext = ".pptx"
+                                except Exception:
+                                    pass
                         except Exception:
                             pass
 
@@ -4488,8 +4601,19 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                             "audio/mpeg": ".mp3", "audio/mp4": ".m4a",
                             "audio/ogg": ".ogg", "audio/flac": ".flac",
                             "audio/wav": ".wav", "audio/x-wav": ".wav",
-                            "video/mp4": ".mp4", "video/webm": ".webm",
+                            "video/mp4": ".mp4", "video/webm": ".mp4",
+                            "video/x-matroska": ".mp4", "video/quicktime": ".mp4",
+                            "video/x-msvideo": ".mp4", "video/mp2t": ".mp4",
+                            "video/3gpp": ".mp4", "video/x-flv": ".mp4",
+                            "video/x-ms-wmv": ".mp4",
                             "application/pdf": ".pdf",
+                            "application/msword": ".doc",
+                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document": ".docx",
+                            "application/vnd.ms-excel": ".xls",
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ".xlsx",
+                            "application/vnd.ms-powerpoint": ".ppt",
+                            "application/vnd.openxmlformats-officedocument.presentationml.presentation": ".pptx",
+                            "text/plain": ".txt", "text/csv": ".csv",
                             "application/zip": ".zip",
                             "application/x-rar-compressed": ".rar",
                             "application/octet-stream": "",
@@ -4497,6 +4621,23 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                         fb_ext = _MIME_EXTS.get(_ct_mime.split(";")[0].strip(), "")
                         if fb_ext:
                             print(f"[DOC] MIME-type ext detected: {fb_ext} from {_ct_mime}")
+
+                    # ── ffprobe fallback if extension is still unknown ─────────
+                    if not fb_ext:
+                        try:
+                            _probe_m = get_video_metadata(tmp_path)
+                            if _probe_m.get("width", 0) > 0:
+                                fb_ext = ".mp4"
+                                print(f"[DOC] ffprobe detected video stream → .mp4")
+                            elif _probe_m.get("duration", 0) > 0:
+                                fb_ext = ".mp3"
+                                print(f"[DOC] ffprobe detected audio stream → .mp3")
+                        except Exception:
+                            pass
+
+                    # Ensure any video extension uses .mp4 so Telegram renders media player
+                    if fb_ext.lower() in VIDEO_EXTENSIONS and fb_ext.lower() != ".mp4":
+                        fb_ext = ".mp4"
 
                     valid_title = clean_filename(fb_base) + fb_ext
                     if not valid_title or valid_title == fb_ext:
@@ -4507,14 +4648,18 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     file_size = os.path.getsize(filepath)
                     tt_s = s.get("thumb_type", "auto")
                     thumb_path = thumb_local_path(uid) if tt_s == "custom" and os.path.exists(thumb_local_path(uid)) else None
+                    _is_vid_dl = fb_ext.lower() in VIDEO_EXTENSIONS
+                    _is_aud_dl = fb_ext.lower() in AUDIO_EXTENSIONS
+                    _up_mode   = "video" if _is_vid_dl else ("audio" if _is_aud_dl else "document")
+                    _hist_type = "Video" if _is_vid_dl else ("Audio" if _is_aud_dl else ("PDF" if fb_ext.lower() == ".pdf" else "Document"))
                     sent = _do_upload(client, message, uid, filepath, valid_title,
-                                      file_size, {}, thumb_path, "document", _edit, file_index, total)
+                                      file_size, {}, thumb_path, _up_mode, _edit, file_index, total)
                     _edit(f"✅ <b>{prefix}File sent!</b>", DONE_KB)
                     _copy_to_destinations(client, message, uid, sent, display=display,
-                                          file_type="Document", file_size=file_size,
+                                          file_type=_hist_type, file_size=file_size,
                                           source_url=source_url, folder_url=folder_url,
                                           drive_file_id=file_id, fname=valid_title)
-                    db.save_download_history(uid, valid_title, file_size, "Document", source_url, folder_url)
+                    db.save_download_history(uid, valid_title, file_size, _hist_type, source_url, folder_url)
                     return sent
                 except Exception as dl_err:
                     print(f"[DOC_UPLOAD] fid={file_id} error: {dl_err}")
@@ -4536,6 +4681,14 @@ def process_single_file(client, message, uid, file_id, hint_name="",
             if uid in PENDING_RENAME:
                 raw_title = PENDING_RENAME.pop(uid)
             valid_title = clean_filename(raw_title)
+            _v_stem, _v_ext = _split_known_ext(valid_title)
+            if file_type == "audio":
+                if _v_ext.lower() not in AUDIO_EXTENSIONS:
+                    valid_title = f"{_v_stem}.mp3"
+            else:
+                # Stream path always downloads/merges MP4 video media — ensure .mp4 extension
+                if _v_ext.lower() != ".mp4":
+                    valid_title = f"{_v_stem}.mp4"
             filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
             last_edit   = {"t": 0}
 
@@ -5518,7 +5671,7 @@ def _do_pdf_download(client, uid: int, orientation: str):
     def _edit(txt, markup=CANCEL_KB):
         tg_edit_safe(status_msg, txt, markup=markup)
 
-    raw_title = os.path.splitext(hint_name)[0] if hint_name else "document"
+    raw_title = _split_known_ext(hint_name)[0] if hint_name else "document"
     if uid in PENDING_RENAME:
         raw_title = PENDING_RENAME.pop(uid)
     valid_title = clean_filename(raw_title) + ".pdf"
@@ -5581,22 +5734,23 @@ def _do_pdf_download(client, uid: int, orientation: str):
                     try: os.remove(filepath)
                     except: pass
 
-            if not _orig_ok and "download_disabled_by_owner" in str(_pdf_dl_err):
-                _edit(
-                    "🔄 <b>Download disabled by owner</b> — browser kholke page-by-page extract kar raha hai…\n"
-                    "<i>(kuch minutes lag sakte hain)</i>"
-                )
-                _, _vt3 = _drive_pdf_via_viewer(file_id, cookies, filepath,
-                                                on_progress, status_cb=_edit)
-                if _vt3:
-                    _r3_title = clean_filename(_vt3) + ".pdf"
-                    _r3_path  = os.path.join(DOWNLOADS_DIR, _r3_title)
-                    try: os.rename(filepath, _r3_path)
-                    except: _r3_path = filepath; _r3_title = valid_title
-                    filepath    = _r3_path
-                    valid_title = _r3_title
-            else:
-                raise
+            if not _orig_ok:
+                if "download_disabled_by_owner" in str(_pdf_dl_err):
+                    _edit(
+                        "🔄 <b>Download disabled by owner</b> — browser kholke page-by-page extract kar raha hai…\n"
+                        "<i>(kuch minutes lag sakte hain)</i>"
+                    )
+                    _, _vt3 = _drive_pdf_via_viewer(file_id, cookies, filepath,
+                                                    on_progress, status_cb=_edit)
+                    if _vt3:
+                        _r3_title = clean_filename(_split_known_ext(_vt3)[0]) + ".pdf"
+                        _r3_path  = os.path.join(DOWNLOADS_DIR, _r3_title)
+                        try: os.rename(filepath, _r3_path)
+                        except: _r3_path = filepath; _r3_title = valid_title
+                        filepath    = _r3_path
+                        valid_title = _r3_title
+                else:
+                    raise
 
         if uid in CANCEL_TASKS:
             CANCEL_TASKS.discard(uid)
