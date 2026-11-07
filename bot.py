@@ -2728,28 +2728,14 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
 def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
                           progress_cb=None, status_cb=None, mime_type: str = ""):
     """
-    Download a Drive PDF that has 'download disabled'.
-    Tries Playwright (headless browser, intercepts all page images) first;
-    falls back to HTML-token scraping if Playwright fails.
+    Download a Drive PDF / Doc that has 'download disabled' or auth restrictions.
+    Fast lightweight HTTP token & thumbnail scraping runs FIRST (no heavy browser, 2-3 seconds).
+    Playwright headless browser is only used as a last-resort fallback.
 
     Returns (byte_size, detected_title_or_None).
     Raises Exception on failure.
     """
-    # ── Primary: Playwright headless browser ─────────────────────────────────
-    if _PLAYWRIGHT_CHROMIUM and os.path.exists(_PLAYWRIGHT_CHROMIUM):
-        try:
-            print(f"[VIEWER_PDF] Trying Playwright for fid={file_id} mime={mime_type}")
-            if status_cb:
-                try: status_cb("🌐 <b>Browser kholke PDF viewer load ho raha hai…</b>")
-                except Exception: pass
-            return _drive_pdf_via_playwright(file_id, cookies, out_path,
-                                             progress_cb, status_cb, mime_type=mime_type)
-        except Exception as _pw_err:
-            print(f"[VIEWER_PDF] Playwright failed ({_pw_err}), falling back to HTML scrape")
-    else:
-        print(f"[VIEWER_PDF] Playwright Chromium not found, using HTML scrape")
-
-    # ── Fallback: Thumbnail API + AKGpih token scraping ──────────────────────
+    # ── Primary: Lightweight Thumbnail API + AKGpih token scraping ──────────
     from PIL import Image
     import io as _io
 
@@ -2758,6 +2744,8 @@ def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
           "Chrome/124.0.0.0 Safari/537.36")
 
     # Build raw Cookie header — sess.cookies.update() silently drops __Secure-*
+    # and httpOnly cookies; a raw header string sends ALL of them correctly.
+    _cookie_hdr = "; ".join(f"{k}={v}" for k, v in cookies.items()) if cookies else ""
     # and httpOnly cookies; a raw header string sends ALL of them correctly.
     _cookie_hdr = "; ".join(f"{k}={v}" for k, v in cookies.items()) if cookies else ""
 
@@ -2994,6 +2982,13 @@ def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
     # Use whichever strategy gave more pages
     best = token_images if len(token_images) >= len(_thumb_images) else _thumb_images
     if not best:
+        if _PLAYWRIGHT_CHROMIUM and os.path.exists(_PLAYWRIGHT_CHROMIUM):
+            print(f"[VIEWER_PDF] Token scrape got 0 pages, trying Playwright fallback for {file_id}")
+            if status_cb:
+                try: status_cb("🌐 <b>PDF viewer load ho raha hai…</b>")
+                except Exception: pass
+            return _drive_pdf_via_playwright(file_id, cookies, out_path,
+                                             progress_cb, status_cb, mime_type=mime_type)
         raise Exception(
             "Koi bhi page download nahi hua — cookies expire ho gayi hain "
             "ya file accessible nahi hai."
@@ -4366,7 +4361,7 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                         except: pass
 
                 if not _direct_ok:
-                    _edit(f"<b>{prefix}🔄 Browser fallback — document extract ho raha hai…</b>")
+                    _edit(f"<b>{prefix}📄 Document pages extract ho rahi hain…</b>")
                     try:
                         _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
                                                        on_progress_doc, status_cb=_edit,
