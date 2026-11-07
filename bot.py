@@ -2467,7 +2467,9 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
         for name, value in cookies.items():
             if not name or value is None:
                 continue
-            for domain_url in _cookie_domains:
+            # Host-specific OSID must only be added to drive.google.com, never docs.google.com (prevents CookieMismatch)
+            target_domains = ["https://drive.google.com"] if "OSID" in str(name) else _cookie_domains
+            for domain_url in target_domains:
                 try:
                     ctx.add_cookies([{
                         "name": str(name), "value": str(value),
@@ -2548,6 +2550,10 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
             pass
         print(f"[PLAYWRIGHT] Page loaded | title={_title!r} | "
               f"intercepted so far: {len(intercepted)}")
+
+        if _title and any(x in _title.lower() for x in ("sign-in", "signin", "login")):
+            browser.close()
+            raise Exception("Google login required — cookies do not have access to this document")
 
         # ── Scroll using mouse.wheel() + JS fallback ──────────────────────────
         # Drive embeds the viewer in an iframe — wheel events must land on it.
@@ -4306,53 +4312,75 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                                              file_index, total, nt), CANCEL_KB, block=False)
                 def _cancelled_doc():
                     return uid in CANCEL_TASKS
-                try:
-                    _drive_auth_download(pdf_url, saved_cookies, filepath, on_progress_doc, _cancelled_doc)
-                except Exception as _pdf_dl_err:
-                    _orig_ok_b = False
-                    for _alt_url_b in [
-                        f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
-                        f"https://drive.google.com/uc?export=download&id={file_id}",
-                    ]:
-                        try:
-                            _meta_b = {}
-                            _drive_auth_download(_alt_url_b, saved_cookies, filepath, on_progress_doc, _cancelled_doc, meta_out=_meta_b)
-                            if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                                with open(filepath, "rb") as _tfb: _hb = _tfb.read(1)
-                                if _hb != b"<":
-                                    _orig_ok_b = True
-                                    _sug_b = _meta_b.get("suggested_filename")
-                                    if _sug_b:
-                                        _clean_sug_b = clean_filename(_sug_b)
-                                        _new_path_b  = os.path.join(DOWNLOADS_DIR, _clean_sug_b)
-                                        try:
-                                            os.rename(filepath, _new_path_b)
-                                            filepath    = _new_path_b
-                                            valid_title = _clean_sug_b
-                                        except: pass
-                                    break
-                                else:
-                                    try: os.remove(filepath)
+                _dl_candidates = [
+                    f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
+                    f"https://drive.google.com/uc?export=download&id={file_id}&confirm=t",
+                ]
+                if mime_type == "application/vnd.google-apps.document":
+                    _dl_candidates.extend([
+                        f"https://docs.google.com/document/d/{file_id}/export?format=docx",
+                        f"https://docs.google.com/document/d/{file_id}/export?format=pdf",
+                    ])
+                elif mime_type == "application/vnd.google-apps.spreadsheet":
+                    _dl_candidates.extend([
+                        f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=xlsx",
+                        f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=pdf",
+                    ])
+                elif mime_type == "application/vnd.google-apps.presentation":
+                    _dl_candidates.extend([
+                        f"https://docs.google.com/presentation/d/{file_id}/export/pptx",
+                        f"https://docs.google.com/presentation/d/{file_id}/export/pdf",
+                    ])
+                else:
+                    _dl_candidates.append(pdf_url)
+
+                _direct_ok = False
+                _last_dl_err = None
+                for _cand_url in _dl_candidates:
+                    try:
+                        _meta_tmp = {}
+                        _drive_auth_download(_cand_url, saved_cookies, filepath, on_progress_doc, _cancelled_doc, meta_out=_meta_tmp)
+                        if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                            with open(filepath, "rb") as _tf:
+                                _magic = _tf.read(15)
+                            # Reject HTML login/error pages disguised as files
+                            if _magic and not _magic.strip().startswith(b"<"):
+                                _direct_ok = True
+                                _sug = _meta_tmp.get("suggested_filename")
+                                if _sug:
+                                    _clean_sug = clean_filename(_sug)
+                                    _new_path  = os.path.join(DOWNLOADS_DIR, _clean_sug)
+                                    try:
+                                        os.rename(filepath, _new_path)
+                                        filepath    = _new_path
+                                        valid_title = _clean_sug
                                     except: pass
-                        except Exception:
-                            try: os.remove(filepath)
-                            except: pass
-                    if not _orig_ok_b:
-                        _edit(f"<b>{prefix}🔄 Browser fallback — document extract ho raha hai…</b>")
-                        try:
-                            _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
-                                                           on_progress_doc, status_cb=_edit,
-                                                           mime_type=mime_type)
-                            if _vt:
-                                _new_title = clean_filename(_split_known_ext(_vt)[0]) + ".pdf"
-                                _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
-                                try: os.rename(filepath, _new_path)
-                                except: _new_path = filepath; _new_title = valid_title
-                                filepath    = _new_path
-                                valid_title = _new_title
-                        except Exception as _v_err:
-                            print(f"[DOC] Playwright viewer fallback error: {_v_err}")
-                            raise _pdf_dl_err
+                                print(f"[DOC] Direct download success with {_cand_url}: {valid_title}")
+                                break
+                            else:
+                                try: os.remove(filepath)
+                                except: pass
+                    except Exception as _ce:
+                        _last_dl_err = _ce
+                        try: os.remove(filepath)
+                        except: pass
+
+                if not _direct_ok:
+                    _edit(f"<b>{prefix}🔄 Browser fallback — document extract ho raha hai…</b>")
+                    try:
+                        _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
+                                                       on_progress_doc, status_cb=_edit,
+                                                       mime_type=mime_type)
+                        if _vt:
+                            _new_title = clean_filename(_split_known_ext(_vt)[0]) + ".pdf"
+                            _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
+                            try: os.rename(filepath, _new_path)
+                            except: _new_path = filepath; _new_title = valid_title
+                            filepath    = _new_path
+                            valid_title = _new_title
+                    except Exception as _v_err:
+                        print(f"[DOC] Playwright viewer fallback error: {_v_err}")
+                        raise _last_dl_err or _v_err
                 if uid in CANCEL_TASKS:
                     CANCEL_TASKS.discard(uid); _edit(f"<b>{prefix}🚫 Cancelled.</b>", None); return None
                 file_size = os.path.getsize(filepath)
