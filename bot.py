@@ -2996,6 +2996,12 @@ def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
 
     print(f"[VIEWER_PDF] Using best result: {len(best)} pages "
           f"(token={len(token_images)}, thumb={len(_thumb_images)})")
+    if status_cb:
+        try:
+            _pg_str = f"{len(best)} page" if len(best) == 1 else f"{len(best)} pages"
+            status_cb(f"🔗 <b>{_pg_str} merge ho rahi hain…</b>")
+        except Exception:
+            pass
     return _stitch_and_save(best), detected_title
 
 
@@ -4292,9 +4298,18 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     return sent
 
                 # ── Google Workspace files (Docs/Slides/Sheets/Drawings):
-                # Always auto-download as Portrait (never prompt user)
+                # Always auto-download native format (docx, xlsx, pptx) or PDF
                 raw_title   = _split_known_ext(file_name)[0] if file_name else "document"
-                valid_title = clean_filename(raw_title) + ".pdf"
+                if mime_type == "application/vnd.google-apps.document":
+                    _native_ext = ".docx"
+                elif mime_type == "application/vnd.google-apps.spreadsheet":
+                    _native_ext = ".xlsx"
+                elif mime_type == "application/vnd.google-apps.presentation":
+                    _native_ext = ".pptx"
+                else:
+                    _native_ext = ".pdf"
+
+                valid_title = clean_filename(raw_title) + _native_ext
                 filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
                 pdf_url     = _build_pdf_url(file_id, mime_type, "portrait")
                 _edit(f"<b>{prefix}⬇️ {type_lbl} download ho raha hai…</b>")
@@ -4361,7 +4376,9 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                         except: pass
 
                 if not _direct_ok:
-                    _edit(f"<b>{prefix}📄 Document pages extract ho rahi hain…</b>")
+                    _edit(f"<b>{prefix}📄 Direct export session nahi mila — viewer se pages extract ho rahi hain…</b>")
+                    valid_title = clean_filename(raw_title) + ".pdf"
+                    filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
                     try:
                         _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
                                                        on_progress_doc, status_cb=_edit,
