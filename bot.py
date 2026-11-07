@@ -2118,7 +2118,9 @@ def _drive_auth_download(url: str, cookies: dict, filepath: str,
     # ── Compute SAPISIDHASH for restricted-file auth ───────────────────────
     sapisid = cookies.get("SAPISID") or cookies.get("__Secure-1PAPISID") or ""
     if sapisid:
-        base_hdrs["Authorization"] = "SAPISIDHASH " + compute_sapisidhash(sapisid)
+        _p_u = urlparse(url)
+        _auth_orig = f"{_p_u.scheme}://{_p_u.netloc}" if _p_u.netloc else "https://drive.google.com"
+        base_hdrs["Authorization"] = "SAPISIDHASH " + compute_sapisidhash(sapisid, _auth_orig)
 
     # Extract file_id from the URL (used for usercontent fallback)
     _fid_m = re.search(r'[?&]id=([a-zA-Z0-9_-]+)', url)
@@ -2364,7 +2366,8 @@ _PLAYWRIGHT_CHROMIUM = _find_chromium()
 print(f"[PLAYWRIGHT] Chromium: {_PLAYWRIGHT_CHROMIUM or 'NOT FOUND'}")
 
 def _drive_pdf_via_playwright(file_id: str, cookies: dict,
-                               out_path: str, progress_cb=None, status_cb=None):
+                               out_path: str, progress_cb=None, status_cb=None,
+                               mime_type: str = ""):
     """
     Use headless Chromium to open Drive's PDF viewer, scroll through ALL pages
     so every page image loads into the DOM as a blob: URL, then extract each
@@ -2503,12 +2506,17 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
         page.on("response", _on_response)
 
         _safe_status("🌐 <b>Browser open hai — PDF viewer load ho raha hai…</b>")
-        print(f"[PLAYWRIGHT] Loading preview for {file_id}…")
+        print(f"[PLAYWRIGHT] Loading preview for {file_id} (mime={mime_type})…")
         # Use "domcontentloaded" — Drive is a SPA that never reaches "networkidle".
         # Catch timeout gracefully and continue; intercepted data is already live.
+        _preview_url = (
+            f"https://docs.google.com/document/d/{file_id}/preview"
+            if "document" in (mime_type or "")
+            else f"https://drive.google.com/file/d/{file_id}/preview"
+        )
         try:
             page.goto(
-                f"https://drive.google.com/file/d/{file_id}/preview",
+                _preview_url,
                 wait_until="domcontentloaded", timeout=30_000,
             )
         except Exception as _goto_err:
@@ -2635,6 +2643,20 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
         print(f"[PLAYWRIGHT] Final: canvas={len(canvas_items)} "
               f"intercept={len(intercepted)}")
 
+        # If no canvas or intercepted image tiles were extracted (e.g. native Google Doc
+        # rendered as DOM HTML rather than Drive tile canvas), export via Chromium print-to-PDF!
+        if not canvas_items and not intercepted:
+            try:
+                page.emulate_media(media="screen")
+                page.pdf(path=out_path, format="A4", print_background=True)
+                if os.path.exists(out_path) and os.path.getsize(out_path) > 1000:
+                    _direct_sz = os.path.getsize(out_path)
+                    print(f"[PLAYWRIGHT] page.pdf() export success: {_direct_sz//1024} KB")
+                    browser.close()
+                    return _direct_sz, _title
+            except Exception as _pdf_err:
+                print(f"[PLAYWRIGHT] direct page.pdf attempt error: {_pdf_err}")
+
         browser.close()
 
     finally:
@@ -2698,7 +2720,7 @@ def _drive_pdf_via_playwright(file_id: str, cookies: dict,
 #  stitching them into a PDF via Pillow — no browser needed.
 # ─────────────────────────────────────────────────────────────────────────────
 def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
-                          progress_cb=None, status_cb=None):
+                          progress_cb=None, status_cb=None, mime_type: str = ""):
     """
     Download a Drive PDF that has 'download disabled'.
     Tries Playwright (headless browser, intercepts all page images) first;
@@ -2710,12 +2732,12 @@ def _drive_pdf_via_viewer(file_id: str, cookies: dict, out_path: str,
     # ── Primary: Playwright headless browser ─────────────────────────────────
     if _PLAYWRIGHT_CHROMIUM and os.path.exists(_PLAYWRIGHT_CHROMIUM):
         try:
-            print(f"[VIEWER_PDF] Trying Playwright for fid={file_id}")
+            print(f"[VIEWER_PDF] Trying Playwright for fid={file_id} mime={mime_type}")
             if status_cb:
                 try: status_cb("🌐 <b>Browser kholke PDF viewer load ho raha hai…</b>")
                 except Exception: pass
             return _drive_pdf_via_playwright(file_id, cookies, out_path,
-                                             progress_cb, status_cb)
+                                             progress_cb, status_cb, mime_type=mime_type)
         except Exception as _pw_err:
             print(f"[VIEWER_PDF] Playwright failed ({_pw_err}), falling back to HTML scrape")
     else:
@@ -4269,96 +4291,83 @@ def process_single_file(client, message, uid, file_id, hint_name="",
                     return sent
 
                 # ── Google Workspace files (Docs/Slides/Sheets/Drawings):
-                # In a folder/bulk download (total>1 or folder_url set) → auto portrait.
-                # For single-file downloads → prompt user for orientation choice.
-                if folder_url or total > 1:
-                    raw_title   = _split_known_ext(file_name)[0] if file_name else "document"
-                    valid_title = clean_filename(raw_title) + ".pdf"
-                    filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
-                    pdf_url     = _build_pdf_url(file_id, mime_type, "portrait")
-                    _edit(f"<b>{prefix}⬇️ {type_lbl} download ho raha hai…</b>")
-                    last_edit = {"t": 0}
-                    def on_progress_doc(dl, total_b, spd, ela, eta):
-                        now = time.time()
-                        if now - last_edit["t"] < 2: return
-                        last_edit["t"] = now
-                        _edit(draw_progress_card(valid_title, dl, total_b, spd, ela, eta,
-                                                 file_index, total, nt), CANCEL_KB, block=False)
-                    def _cancelled_doc():
-                        return uid in CANCEL_TASKS
-                    try:
-                        _drive_auth_download(pdf_url, saved_cookies, filepath, on_progress_doc, _cancelled_doc)
-                    except Exception as _pdf_dl_err:
-                        _orig_ok_b = False
-                        for _alt_url_b in [
-                            f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
-                            f"https://drive.google.com/uc?export=download&id={file_id}",
-                        ]:
-                            try:
-                                _meta_b = {}
-                                _drive_auth_download(_alt_url_b, saved_cookies, filepath, on_progress_doc, _cancelled_doc, meta_out=_meta_b)
-                                if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
-                                    with open(filepath, "rb") as _tfb: _hb = _tfb.read(1)
-                                    if _hb != b"<":
-                                        _orig_ok_b = True
-                                        _sug_b = _meta_b.get("suggested_filename")
-                                        if _sug_b:
-                                            _clean_sug_b = clean_filename(_sug_b)
-                                            _new_path_b  = os.path.join(DOWNLOADS_DIR, _clean_sug_b)
-                                            try:
-                                                os.rename(filepath, _new_path_b)
-                                                filepath    = _new_path_b
-                                                valid_title = _clean_sug_b
-                                            except: pass
-                                        break
-                                    else:
-                                        try: os.remove(filepath)
+                # Always auto-download as Portrait (never prompt user)
+                raw_title   = _split_known_ext(file_name)[0] if file_name else "document"
+                valid_title = clean_filename(raw_title) + ".pdf"
+                filepath    = os.path.join(DOWNLOADS_DIR, valid_title)
+                pdf_url     = _build_pdf_url(file_id, mime_type, "portrait")
+                _edit(f"<b>{prefix}⬇️ {type_lbl} download ho raha hai…</b>")
+                last_edit = {"t": 0}
+                def on_progress_doc(dl, total_b, spd, ela, eta):
+                    now = time.time()
+                    if now - last_edit["t"] < 2: return
+                    last_edit["t"] = now
+                    _edit(draw_progress_card(valid_title, dl, total_b, spd, ela, eta,
+                                             file_index, total, nt), CANCEL_KB, block=False)
+                def _cancelled_doc():
+                    return uid in CANCEL_TASKS
+                try:
+                    _drive_auth_download(pdf_url, saved_cookies, filepath, on_progress_doc, _cancelled_doc)
+                except Exception as _pdf_dl_err:
+                    _orig_ok_b = False
+                    for _alt_url_b in [
+                        f"https://drive.usercontent.google.com/download?id={file_id}&export=download&authuser=0&confirm=t",
+                        f"https://drive.google.com/uc?export=download&id={file_id}",
+                    ]:
+                        try:
+                            _meta_b = {}
+                            _drive_auth_download(_alt_url_b, saved_cookies, filepath, on_progress_doc, _cancelled_doc, meta_out=_meta_b)
+                            if os.path.exists(filepath) and os.path.getsize(filepath) > 0:
+                                with open(filepath, "rb") as _tfb: _hb = _tfb.read(1)
+                                if _hb != b"<":
+                                    _orig_ok_b = True
+                                    _sug_b = _meta_b.get("suggested_filename")
+                                    if _sug_b:
+                                        _clean_sug_b = clean_filename(_sug_b)
+                                        _new_path_b  = os.path.join(DOWNLOADS_DIR, _clean_sug_b)
+                                        try:
+                                            os.rename(filepath, _new_path_b)
+                                            filepath    = _new_path_b
+                                            valid_title = _clean_sug_b
                                         except: pass
-                            except Exception:
-                                try: os.remove(filepath)
-                                except: pass
-                        if not _orig_ok_b:
-                            if "download_disabled_by_owner" in str(_pdf_dl_err):
-                                _edit(f"<b>{prefix}🔄 Download disabled — browser se page-by-page extract kar raha hai…</b>")
-                                _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
-                                                               on_progress_doc, status_cb=_edit)
-                                if _vt:
-                                    _new_title = clean_filename(_split_known_ext(_vt)[0]) + ".pdf"
-                                    _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
-                                    try: os.rename(filepath, _new_path)
-                                    except: _new_path = filepath; _new_title = valid_title
-                                    filepath    = _new_path
-                                    valid_title = _new_title
-                            else:
-                                raise
-                    if uid in CANCEL_TASKS:
-                        CANCEL_TASKS.discard(uid); _edit(f"<b>{prefix}🚫 Cancelled.</b>", None); return None
-                    file_size = os.path.getsize(filepath)
-                    tt_s = s.get("thumb_type", "auto")
-                    thumb_path = thumb_local_path(uid) if tt_s == "custom" and os.path.exists(thumb_local_path(uid)) else None
-                    sent = _do_upload(client, message, uid, filepath, valid_title,
-                                      file_size, {}, thumb_path, "document", _edit, file_index, total)
-                    _edit(f"✅ <b>{prefix}Document sent!</b>", DONE_KB)
-                    _b_ft = "PDF" if valid_title.lower().endswith(".pdf") else "Document"
-                    _copy_to_destinations(client, message, uid, sent, display=display,
-                                          file_type=_b_ft, file_size=file_size,
-                                          source_url=source_url, folder_url=folder_url,
-                                          drive_file_id=file_id, fname=valid_title)
-                    db.save_download_history(uid, valid_title, file_size, _b_ft, source_url, folder_url)
-                    return sent
-                PENDING_PDF_ORIENT[uid] = {
-                    "file_id": file_id, "hint_name": file_name,
-                    "mime_type": mime_type, "cookies": {},
-                    "status_msg": status_msg, "origin_msg": message,
-                    "folder_url": folder_url,
-                }
-                _edit(
-                    f"<b>{prefix}{type_lbl} mila!</b>\n\n"
-                    f"📄 <b>File:</b> <code>{h(file_name)}</code>\n\n"
-                    "PDF export ka orientation chunein:",
-                    pdf_orient_kb(),
-                )
-                return None
+                                    break
+                                else:
+                                    try: os.remove(filepath)
+                                    except: pass
+                        except Exception:
+                            try: os.remove(filepath)
+                            except: pass
+                    if not _orig_ok_b:
+                        _edit(f"<b>{prefix}🔄 Browser fallback — document extract ho raha hai…</b>")
+                        try:
+                            _, _vt = _drive_pdf_via_viewer(file_id, saved_cookies, filepath,
+                                                           on_progress_doc, status_cb=_edit,
+                                                           mime_type=mime_type)
+                            if _vt:
+                                _new_title = clean_filename(_split_known_ext(_vt)[0]) + ".pdf"
+                                _new_path  = os.path.join(DOWNLOADS_DIR, _new_title)
+                                try: os.rename(filepath, _new_path)
+                                except: _new_path = filepath; _new_title = valid_title
+                                filepath    = _new_path
+                                valid_title = _new_title
+                        except Exception as _v_err:
+                            print(f"[DOC] Playwright viewer fallback error: {_v_err}")
+                            raise _pdf_dl_err
+                if uid in CANCEL_TASKS:
+                    CANCEL_TASKS.discard(uid); _edit(f"<b>{prefix}🚫 Cancelled.</b>", None); return None
+                file_size = os.path.getsize(filepath)
+                tt_s = s.get("thumb_type", "auto")
+                thumb_path = thumb_local_path(uid) if tt_s == "custom" and os.path.exists(thumb_local_path(uid)) else None
+                sent = _do_upload(client, message, uid, filepath, valid_title,
+                                  file_size, {}, thumb_path, "document", _edit, file_index, total)
+                _edit(f"✅ <b>{prefix}Document sent!</b>", DONE_KB)
+                _b_ft = "PDF" if valid_title.lower().endswith(".pdf") else "Document"
+                _copy_to_destinations(client, message, uid, sent, display=display,
+                                      file_type=_b_ft, file_size=file_size,
+                                      source_url=source_url, folder_url=folder_url,
+                                      drive_file_id=file_id, fname=valid_title)
+                db.save_download_history(uid, valid_title, file_size, _b_ft, source_url, folder_url)
+                return sent
 
             # ── Non-video / non-audio: download as document ──────────────────
             if file_type not in ("video", "audio"):
@@ -5740,13 +5749,14 @@ def _do_pdf_download(client, uid: int, orientation: str):
                     except: pass
 
             if not _orig_ok:
-                if "download_disabled_by_owner" in str(_pdf_dl_err):
-                    _edit(
-                        "🔄 <b>Download disabled by owner</b> — browser kholke page-by-page extract kar raha hai…\n"
-                        "<i>(kuch minutes lag sakte hain)</i>"
-                    )
+                _edit(
+                    "🔄 <b>Browser fallback</b> — document page extract ho raha hai…\n"
+                    "<i>(kuch seconds lag sakte hain)</i>"
+                )
+                try:
                     _, _vt3 = _drive_pdf_via_viewer(file_id, cookies, filepath,
-                                                    on_progress, status_cb=_edit)
+                                                    on_progress, status_cb=_edit,
+                                                    mime_type=mime_type)
                     if _vt3:
                         _r3_title = clean_filename(_split_known_ext(_vt3)[0]) + ".pdf"
                         _r3_path  = os.path.join(DOWNLOADS_DIR, _r3_title)
@@ -5754,8 +5764,9 @@ def _do_pdf_download(client, uid: int, orientation: str):
                         except: _r3_path = filepath; _r3_title = valid_title
                         filepath    = _r3_path
                         valid_title = _r3_title
-                else:
-                    raise
+                except Exception as _v3_err:
+                    print(f"[PDF_DL] Playwright viewer fallback error: {_v3_err}")
+                    raise _pdf_dl_err
 
         if uid in CANCEL_TASKS:
             CANCEL_TASKS.discard(uid)
